@@ -1,0 +1,25 @@
+{
+  "name": "production-dashboard",
+  "version": "1.0.0",
+  "description": "Production Management Dashboard for Java Connection",
+  "main": "index.html",
+  "scripts": {
+    "dev": "vercel dev",
+    "start": "serve -s .",
+    "build": "echo 'No build step required for static site'"
+  },
+  "dependencies": {
+    "serve": "^14.0.0"
+  },
+  "devDependencies": {
+    "vercel": "^28.0.0"
+  },
+  "keywords": [
+    "production",
+    "dashboard",
+    "manufacturing",
+    "tracking"
+  ],
+  "author": "Java Connection",
+  "license": "MIT"
+}
