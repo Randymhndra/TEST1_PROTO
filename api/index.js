@@ -101,8 +101,26 @@ export default async function handler(req, res) {
       }
 
       if (method === "POST") {
-        const newProject = await Project.create(req.body);
-        console.log("✅ Project saved:", newProject);
+        if (!req.body || Object.keys(req.body).length === 0)
+          return res.status(400).json({ message: "Empty project data" });
+
+        const payload = {
+          project_id: req.body.project_id || `PRJ-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
+          project_name: req.body.project_name || req.body.projectName || "Untitled Project",
+          project_description: req.body.project_description || req.body.projectDescription || "",
+          start_date: req.body.start_date || req.body.startDate || "",
+          end_date: req.body.end_date || req.body.endDate || "",
+          client: req.body.client || "",
+          project_manager: req.body.project_manager || req.body.projectManager || "",
+          status: req.body.status || "Pending",
+          notes: req.body.notes || "",
+          orders: req.body.orders || [],
+          created_date: req.body.created_date || new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+
+        const newProject = await Project.create(payload);
+        console.log("✅ Project saved to MongoDB:", newProject);
         return res.status(201).json(newProject);
       }
 
