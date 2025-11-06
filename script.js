@@ -525,20 +525,6 @@ async function deleteProject(projectId) {
     }
 }
 
-// Save and Update Orders
-async function saveOrdersToKV() {
-    try {
-        await fetch('/api?type=orders', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(orders)
-        });
-        console.log('✅ Orders saved to KV');
-    } catch (error) {
-        console.error('❌ Failed to save orders:', error);
-    }
-}
-
 // Load Projects
 function loadProjects() {
     let html = '';
@@ -644,6 +630,24 @@ function loadProjects() {
     }
     
     document.getElementById('projects-container').innerHTML = html;
+}
+
+// Waiting for save KV
+await saveOrdersToKV();
+
+// Order KV PUT
+async function saveOrdersToKV() {
+    try {
+        await fetch('/api?type=orders', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orders)
+        });
+        console.log('✅ Orders saved to KV');
+    } catch (error) {
+        console.error('❌ Failed to save orders to KV:', error);
+        showAlert('Could not sync orders with server.', 'warning');
+    }
 }
 
 // Update project select options in forms
@@ -2988,6 +2992,7 @@ document.getElementById('order-form').addEventListener('submit', async (e) => {
                 }))
             };
             orders.push(newOrder);
+            await saveOrdersToKV();
             showAlert('Order created successfully', 'success');
         }
         
@@ -3010,6 +3015,7 @@ async function deleteOrder(orderId) {
     if (confirm(`Are you sure you want to delete order ${orderId}?`)) {
         try {
             orders = orders.filter(o => o.order_id !== orderId);
+            await saveOrdersToKV();
             showAlert('Order deleted successfully', 'success');
             loadOrders();
             loadDashboard();
@@ -3064,6 +3070,9 @@ document.getElementById('tracking-form').addEventListener('submit', async (e) =>
 
                 // Update order status and progress
                 updateOrderStatus(order);
+
+                // ✅ Persist all order data to KV
+                await saveOrdersToKV();
 
                 showAlert('Tracking updated successfully', 'success');
                 e.target.reset();
