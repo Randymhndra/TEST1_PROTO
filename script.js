@@ -3114,9 +3114,12 @@ loadDashboard();
 loadSavedLogo();
 
 // === AUTO LOAD DEFAULT TAB ON PAGE LOAD ===
-window.addEventListener("DOMContentLoaded", async () => {
-  console.log("🌐 Page loaded — preloading Orders and Projects...");
-  if (typeof loadOrders === "function") await loadOrders();
-  if (typeof loadProjects === "function") await loadProjects();
-  showTab('orders'); // default view
+window.addEventListener("DOMContentLoaded", () => {
+  console.log("🌐 Page loaded — auto-selecting Orders tab...");
+  const defaultTab = document.querySelector('[onclick*="showTab(\'orders\', event)"]');
+  if (defaultTab) {
+    defaultTab.click(); // triggers the normal tab behavior
+  } else {
+    showTab('orders'); // fallback if selector fails
+  }
 });
