@@ -115,3 +115,16 @@ async function saveOrder(orderData) {
     throw err;
   }
 }
+
+// === FORCE INITIAL LOAD ===
+window.addEventListener("DOMContentLoaded", async () => {
+  console.log("🌐 DOM fully loaded — fetching Orders now...");
+  try {
+    const res = await fetch('/api?type=orders', { cache: 'no-store' });
+    const orders = await res.json();
+    console.log("✅ Fetched from API:", orders);
+    if (typeof renderOrders === "function") renderOrders(orders);
+  } catch (err) {
+    console.error("❌ Failed to fetch orders:", err);
+  }
+});
