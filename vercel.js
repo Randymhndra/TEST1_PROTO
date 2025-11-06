@@ -60,7 +60,14 @@ async function saveOrder(orderData) {
     }
 
     const result = await res.json();
-    console.log("Saved order:", result);
+    console.log("✅ Saved order:", result);
+
+    // ✅ reload list immediately
+    if (typeof loadOrders === "function") {
+      await loadOrders();
+    }
+
+    showAlert('Order saved successfully', 'success');
     return result;
   } catch (err) {
     console.error('saveOrder error:', err);
@@ -68,3 +75,4 @@ async function saveOrder(orderData) {
     throw err;
   }
 }
+
