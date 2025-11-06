@@ -1083,7 +1083,7 @@ function showDssTab(tabName) {
 }
 
 // Tab Management
-function showTab(tabName) {
+function showTab(tabName, event) {
     document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
     document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
     
@@ -2876,8 +2876,17 @@ document.getElementById('order-form').addEventListener('submit', async (e) => {
     data.requires_accessories = document.getElementById('requires-accessories').checked;
     data.requires_welding = document.getElementById('requires-welding').checked;
     data.quantity = parseInt(data.quantity);
-    if (orderId) {
-        data.order_id = orderId; // Pass the ID if we are editing
+    data.order_id = orderId || null; // Pass null if new, API will handle it
+
+    // Populate tracking for new orders
+    if (!orderId) {
+        data.tracking = productionProcesses.map(process => ({
+            process: process.id,
+            status: 'pending',
+            quantity_completed: 0,
+            defect_quantity: 0,
+            start_time: null, end_time: null, pic_name: '', issues: '', last_updated: null
+        }));
     }
 
     // Disable submit button
@@ -2890,13 +2899,21 @@ document.getElementById('order-form').addEventListener('submit', async (e) => {
         if (typeof saveOrder !== 'function') {
             throw new Error('saveOrder function is not defined. Check vercel.js');
         }
-        
-        await saveOrder(data); // This function now handles saving AND reloading
-        
+
+        // We need to pass the *full* order object, not just form data
+        let payload = data;
+        if(orderId) {
+            // We are editing, merge with existing data
+            const existingOrder = orders.find(o => o.order_id === orderId);
+            payload = { ...existingOrder, ...data };
+        }
+
+        await saveOrder(payload); // This function (from vercel.js) needs to handle reloading
+
         closeOrderModal();
-        // No need to call renderOrders() or loadDashboard() here,
-        // because loadAndInitializeApp() (called by saveOrder) already did it.
-        
+        // The reload logic should be in vercel.js, but we'll refresh here just in case.
+        window.location.reload(); // Simple way to force a full data reload
+
     } catch (error) {
         console.error('Error in form submission:', error);
         showAlert(`Error saving order: ${error.message}`, 'error');
@@ -2912,18 +2929,26 @@ document.getElementById('order-form').addEventListener('submit', async (e) => {
 async function editOrder(orderId) {
     openOrderModal(orderId);
 }
-
 // Delete Order
 async function deleteOrder(orderId) {
-    if (confirm(`Are you sure you want to delete order ${orderId}?`)) {
+    if (confirm(`Are you sure you want to delete order ${orderId}? This is permanent.`)) {
         try {
-            orders = orders.filter(o => o.order_id !== orderId);
-            showAlert('Order deleted successfully', 'success');
-            renderOrders(orders);
-            loadDashboard();
+            // Call the deleteOrderAPI function (which we need to add to vercel.js)
+            if (typeof deleteOrderAPI !== 'function') {
+                // Quick fix: add deleteOrderAPI to vercel.js if it's missing
+                // For now, let's just show an error.
+                // THIS IS THE FIX FROM THE PREVIOUS MESSAGE. 
+                // Make sure vercel.js has the deleteOrderAPI function
+                throw new Error('deleteOrderAPI function is not defined. Check vercel.js');
+            }
+
+            await deleteOrderAPI(orderId); // This function will handle reloading
+
+            // The reload logic is in deleteOrderAPI, no need to do it here.
+
         } catch (error) {
-            console.error('Error:', error);
-            showAlert('Error deleting order', 'error');
+            console.error('Error deleting order:', error);
+            showAlert(`Error deleting order: ${error.message}`, 'error');
         }
     }
 }
