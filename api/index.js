@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 // ✅ Always reference the same cluster + database
 const uri =
   process.env.MONGODB_URI ||
-  "mongodb+srv://Verc3L:cVUPUNi1bTH51Dlz@tvrggydb.kufz1s1.mongodb.net?retryWrites=true&w=majority";
+  "mongodb+srv://Verc3L:cVUPUNi1bTH51Dlz@tvrggydb.kufz1s1.mongodb.net";
 
 // ✅ Reuse global connection across Vercel invocations
 let cached = global.mongoose;
