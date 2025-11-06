@@ -1,7 +1,19 @@
-// Ensure required functions exist before calling
-if (typeof renderOrders !== "function") {
-  console.error("❌ renderOrders() not found. Make sure script.js loads before vercel.js.");
-}
+document.addEventListener("DOMContentLoaded", () => {
+  // Only load orders after script.js has fully loaded
+  if (typeof renderOrders !== "function") {
+    console.warn("⚠️ renderOrders() not yet loaded, retrying...");
+    const interval = setInterval(() => {
+      if (typeof renderOrders === "function") {
+        clearInterval(interval);
+        console.log("✅ renderOrders() available, loading orders...");
+        loadOrders();
+      }
+    }, 200);
+  } else {
+    console.log("✅ renderOrders() available, loading orders...");
+    loadOrders();
+  }
+});
 
 // Fetch orders from MongoDB
 async function loadOrders() {
