@@ -1,16 +1,20 @@
-const API_BASE = "https://test-1-proto.vercel.app/"; // or http://localhost:3000
+// Ensure required functions exist before calling
+if (typeof renderOrders !== "function") {
+  console.error("❌ renderOrders() not found. Make sure script.js loads before vercel.js.");
+}
 
-// Use relative API paths so you don't depend on API_BASE being exact
-// (keeps addresses exactly as your backend expects: /api?type=orders)
+// Fetch orders
 async function loadOrders() {
   try {
     const res = await fetch('/api?type=orders', { cache: 'no-store' });
-    if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      throw new Error(`Failed to load orders: ${res.status} ${res.statusText} ${text}`);
-    }
     const orders = await res.json();
-    renderOrders(orders);
+
+    if (typeof renderOrders === "function") {
+      renderOrders(orders);
+    } else {
+      console.error("renderOrders is not defined when loadOrders ran");
+    }
+
   } catch (err) {
     console.error('loadOrders error:', err);
     showAlert('Could not load orders from server. Open console/Network tab for details.', 'error');
