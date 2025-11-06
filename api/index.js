@@ -15,27 +15,7 @@ async function connectToDB() {
 }
 
 // --- Schemas ---
-const OrderSchema = new mongoose.Schema(
-  {
-    order_id: String,
-    customer_name: String,
-    product_description: String,
-    quantity: Number,
-    order_date: String,
-    target_date: String,
-    project_id: String,
-    current_status: String,
-    progress: Number,
-    tracking: Array,
-    notes: String,
-    requires_accessories: Boolean,
-    requires_welding: Boolean,
-    risk_level: String,
-    risk_score: Number,
-    pic_name: String,
-  },
-  { strict: false }
-);
+const OrderSchema = new mongoose.Schema({}, { strict: false });
 
 const ProjectSchema = new mongoose.Schema(
   {

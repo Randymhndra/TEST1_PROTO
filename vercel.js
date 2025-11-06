@@ -60,10 +60,33 @@ async function loadOrders() {
 
 async function saveOrder(orderData) {
   try {
+    // Normalize field names to match MongoDB schema
+    const payload = {
+      order_id: orderData.order_id || `ORD-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
+      customer_name: orderData.customerName || orderData.customer_name || '',
+      product_description: orderData.product || orderData.product_description || '',
+      quantity: orderData.qty || orderData.quantity || 0,
+      order_date: orderData.orderDate || orderData.order_date || '',
+      target_date: orderData.targetDate || orderData.target_date || '',
+      project_id: orderData.project || orderData.project_id || '',
+      pic_name: orderData.picName || orderData.pic_name || '',
+      priority: orderData.priority || 'medium',
+      requires_accessories: orderData.requires_accessories ?? orderData.requiresAccessories ?? false,
+      requires_welding: orderData.requires_welding ?? orderData.requiresWelding ?? false,
+      notes: orderData.notes || '',
+      current_status: orderData.current_status || 'pending',
+      progress: orderData.progress || 0,
+      risk_level: orderData.risk_level || 'LOW',
+      risk_score: orderData.risk_score || 0,
+      tracking: Array.isArray(orderData.tracking) ? orderData.tracking : []
+    };
+
+    console.log("🟡 Sending order payload:", payload);
+
     const res = await fetch('/api?type=orders', {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(orderData),
+      body: JSON.stringify(payload),
     });
 
     if (!res.ok) {
@@ -72,19 +95,19 @@ async function saveOrder(orderData) {
     }
 
     const result = await res.json();
-    console.log("✅ Saved order:", result);
+    console.log("✅ Order saved to MongoDB:", result);
 
-    // ✅ reload list immediately
+    // Refresh the orders table immediately
     if (typeof loadOrders === "function") {
       await loadOrders();
     }
 
     showAlert('Order saved successfully', 'success');
     return result;
+
   } catch (err) {
-    console.error('saveOrder error:', err);
+    console.error('❌ saveOrder error:', err);
     showAlert('Failed to save order. See console for details.', 'error');
     throw err;
   }
 }
-
