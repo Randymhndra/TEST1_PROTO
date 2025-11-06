@@ -1,38 +1,102 @@
 // api/index.js
 import { kv } from '@vercel/kv';
 
-export default async function handler(req, res) {
-  // CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  const { method, query } = req;
-  const { type, id } = query;
-
+// Parse JSON body safely
+async function getBody(req) {
+  const chunks = [];
+  for await (const chunk of req) chunks.push(chunk);
+  const raw = Buffer.concat(chunks).toString();
   try {
-    switch (type) {
-      case 'orders':
-        return await handleOrders(req, res, method, id);
-      case 'projects':
-        return await handleProjects(req, res, method, id);
-      case 'settings':
-        return await handleSettings(req, res, method, id);
-      case 'tracking':
-        return await handleTracking(req, res, method, id);
-      case 'export':
-        return await handleExport(req, res, method);
-      default:
-        return res.status(404).json({ error: 'Endpoint not found' });
-    }
-  } catch (error) {
-    console.error('API Error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    return JSON.parse(raw);
+  } catch {
+    return null;
   }
+}
+
+// === ORDERS ===
+async function handleOrders(req, res, method) {
+  if (method === 'GET') {
+    const data = await getFromKV('orders');
+    return res.status(200).json({ success: true, data });
+  }
+
+  if (method === 'PUT') {
+    const body = await getBody(req);
+    await setToKV('orders', body);
+    return res.status(200).json({ success: true, message: 'Orders saved' });
+  }
+
+  if (method === 'DELETE') {
+    await deleteFromKV('orders');
+    return res.status(200).json({ success: true, message: 'Orders deleted' });
+  }
+
+  return res.status(405).json({ error: 'Method not allowed' });
+}
+
+// === PROJECTS ===
+async function handleProjects(req, res, method) {
+  if (method === 'GET') {
+    const data = await getFromKV('projects');
+    return res.status(200).json({ success: true, data });
+  }
+
+  if (method === 'PUT') {
+    const body = await getBody(req);
+    await setToKV('projects', body);
+    return res.status(200).json({ success: true, message: 'Projects saved' });
+  }
+
+  if (method === 'DELETE') {
+    await deleteFromKV('projects');
+    return res.status(200).json({ success: true, message: 'Projects deleted' });
+  }
+
+  return res.status(405).json({ error: 'Method not allowed' });
+}
+
+// === SETTINGS ===
+async function handleSettings(req, res, method) {
+  if (method === 'GET') {
+    const data = await getFromKV('settings');
+    return res.status(200).json({ success: true, data });
+  }
+
+  if (method === 'PUT') {
+    const body = await getBody(req);
+    const existing = (await getFromKV('settings')) || {};
+    const merged = { ...existing, ...body }; // merge new settings with old
+    await setToKV('settings', merged);
+    return res.status(200).json({ success: true, message: 'Settings updated' });
+  }
+
+  if (method === 'DELETE') {
+    await deleteFromKV('settings');
+    return res.status(200).json({ success: true, message: 'Settings deleted' });
+  }
+
+  return res.status(405).json({ error: 'Method not allowed' });
+}
+
+// === TRACKING (optional, same pattern) ===
+async function handleTracking(req, res, method) {
+  if (method === 'GET') {
+    const data = await getFromKV('tracking');
+    return res.status(200).json({ success: true, data });
+  }
+
+  if (method === 'PUT') {
+    const body = await getBody(req);
+    await setToKV('tracking', body);
+    return res.status(200).json({ success: true, message: 'Tracking saved' });
+  }
+
+  if (method === 'DELETE') {
+    await deleteFromKV('tracking');
+    return res.status(200).json({ success: true, message: 'Tracking deleted' });
+  }
+
+  return res.status(405).json({ error: 'Method not allowed' });
 }
 
 // Helper functions for KV storage

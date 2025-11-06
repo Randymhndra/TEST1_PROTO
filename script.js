@@ -134,21 +134,41 @@ function loadEfficiencySettings() {
     return saved ? JSON.parse(saved) : {...defaultEfficiencySettings};
 }
 
-// Save efficiency settings to localStorage
-function saveEfficiencySettings() {
+async function saveEfficiencySettings() {
     const settings = {};
     
     productionProcesses.forEach(process => {
         settings[process.id] = {
             name: process.name,
-            targetTime: parseFloat(document.getElementById(`time-${process.id}`).value) || defaultEfficiencySettings[process.id].targetTime,
-            targetQuality: parseFloat(document.getElementById(`quality-${process.id}`).value) || defaultEfficiencySettings[process.id].targetQuality,
-            targetOutput: parseFloat(document.getElementById(`output-${process.id}`).value) || defaultEfficiencySettings[process.id].targetOutput,
+            targetTime:
+                parseFloat(document.getElementById(`time-${process.id}`).value) ||
+                defaultEfficiencySettings[process.id].targetTime,
+            targetQuality:
+                parseFloat(document.getElementById(`quality-${process.id}`).value) ||
+                defaultEfficiencySettings[process.id].targetQuality,
+            targetOutput:
+                parseFloat(document.getElementById(`output-${process.id}`).value) ||
+                defaultEfficiencySettings[process.id].targetOutput,
             criteria: defaultEfficiencySettings[process.id].criteria
         };
     });
-    
+
+    // ✅ Save locally for instant use
     localStorage.setItem('processEfficiencySettings', JSON.stringify(settings));
+
+    // ✅ Also persist to Vercel KV so it survives refresh/login
+    try {
+        await fetch('/api?type=settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ efficiency: settings })
+        });
+        console.log('✅ Efficiency settings saved to KV');
+    } catch (error) {
+        console.error('❌ Failed to save settings to KV:', error);
+        showAlert('Failed to sync with server (KV). Local copy saved only.', 'warning');
+    }
+
     showAlert('Efficiency settings saved successfully!', 'success');
     loadEfficiencyPage();
 }
@@ -440,13 +460,13 @@ document.getElementById('project-form').addEventListener('submit', async (e) => 
                     client: data.client,
                     project_manager: data.project_manager,
                     status: data.status,
-                    notes: data.notes
+                    notes: data.notes,
+                    updated_at: new Date().toISOString()
                 };
             }
-            showAlert('Project updated successfully', 'success');
         } else {
             // Create new project
-            const newProjectId = 'PRJ-' + String(projectIdCounter++).padStart(3, '0');
+            const newProjectId = 'PRJ-' + String(projects.length + 1).padStart(3, '0');
             const newProject = {
                 project_id: newProjectId,
                 project_name: data.project_name,
@@ -458,18 +478,26 @@ document.getElementById('project-form').addEventListener('submit', async (e) => 
                 status: data.status,
                 notes: data.notes,
                 orders: [],
-                created_date: new Date().toISOString().split('T')[0]
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
             };
             projects.push(newProject);
-            showAlert('Project created successfully', 'success');
         }
-        
+
+        // ✅ Save permanently to KV via API
+        await fetch('/api?type=projects', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(projects)
+        });
+
+        showAlert('Project saved successfully!', 'success');
         closeProjectModal();
         loadProjects();
         updateProjectSelects();
     } catch (error) {
-        console.error('Error:', error);
-        showAlert(`Error ${projectId ? 'updating' : 'creating'} project`, 'error');
+        console.error('Error saving project:', error);
+        showAlert('Failed to save project.', 'error');
     }
 });
 
@@ -477,22 +505,37 @@ document.getElementById('project-form').addEventListener('submit', async (e) => 
 async function deleteProject(projectId) {
     if (confirm(`Are you sure you want to delete project ${projectId}?`)) {
         try {
-            // Remove project reference from orders
-            orders.forEach(order => {
-                if (order.project_id === projectId) {
-                    order.project_id = null;
-                }
-            });
-            
-            // Delete project
+            // Remove project locally
             projects = projects.filter(p => p.project_id !== projectId);
+
+            // ✅ Update KV
+            await fetch(`/api?type=projects`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(projects)
+            });
+
             showAlert('Project deleted successfully', 'success');
             loadProjects();
             updateProjectSelects();
         } catch (error) {
-            console.error('Error:', error);
+            console.error('Error deleting project:', error);
             showAlert('Error deleting project', 'error');
         }
+    }
+}
+
+// Save and Update Orders
+async function saveOrdersToKV() {
+    try {
+        await fetch('/api?type=orders', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orders)
+        });
+        console.log('✅ Orders saved to KV');
+    } catch (error) {
+        console.error('❌ Failed to save orders:', error);
     }
 }
 
