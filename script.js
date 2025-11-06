@@ -463,84 +463,62 @@ function closeProjectModal() {
 // Handle form submission for create and update project
 document.getElementById('project-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData);
     const projectId = document.getElementById('project-id').value;
 
+    // Disable submit button
+    const submitButton = document.getElementById('project-submit-button');
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+
     try {
+        let payload;
         if (projectId) {
-            // Update existing project
-            const index = projects.findIndex(p => p.project_id === projectId);
-            if (index !== -1) {
-                projects[index] = {
-                    ...projects[index],
-                    project_name: data.project_name,
-                    project_description: data.project_description,
-                    start_date: data.start_date,
-                    end_date: data.end_date,
-                    client: data.client,
-                    project_manager: data.project_manager,
-                    status: data.status,
-                    notes: data.notes,
-                    updated_at: new Date().toISOString()
-                };
-            }
+            // Editing: merge with existing data
+            const existingProject = projects.find(p => p.project_id === projectId);
+            payload = { ...existingProject, ...data, updated_at: new Date().toISOString() };
         } else {
-            // Create new project
-            const newProjectId = 'PRJ-' + String(projects.length + 1).padStart(3, '0');
-            const newProject = {
-                project_id: newProjectId,
-                project_name: data.project_name,
-                project_description: data.project_description,
-                start_date: data.start_date,
-                end_date: data.end_date,
-                client: data.client,
-                project_manager: data.project_manager,
-                status: data.status,
-                notes: data.notes,
+            // Creating: create new payload
+            payload = {
+                ...data,
+                project_id: null, // API will generate
                 orders: [],
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
             };
-            projects.push(newProject);
         }
 
-        await fetch('/api?type=projects', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(projects)
-        });
+        if (typeof saveProjectAPI !== 'function') {
+            throw new Error('saveProjectAPI function is not defined. Check vercel.js');
+        }
 
-        showAlert('Project saved successfully!', 'success');
+        await saveProjectAPI(payload); // This reloads all data
         closeProjectModal();
-        loadProjects();
-        updateProjectSelects();
+
     } catch (error) {
         console.error('Error saving project:', error);
-        showAlert('Failed to save project.', 'error');
+        showAlert(`Failed to save project: ${error.message}`, 'error');
+    } finally {
+        submitButton.disabled = false;
+        const buttonText = projectId ? '<i class="fas fa-save"></i> Update Project' : '<i class="fas fa-plus"></i> Create Project';
+        submitButton.innerHTML = buttonText;
     }
 });
 
 // Delete Project
 async function deleteProject(projectId) {
-    if (confirm(`Are you sure you want to delete project ${projectId}?`)) {
+    if (confirm(`Are you sure you want to delete project ${projectId}? This is permanent.`)) {
         try {
-            // Remove project locally
-            projects = projects.filter(p => p.project_id !== projectId);
+            if (typeof deleteProjectAPI !== 'function') {
+                throw new Error('deleteProjectAPI function is not defined. Check vercel.js');
+            }
 
-            await fetch(`/api?type=projects`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(projects)
-            });
+            await deleteProjectAPI(projectId); // This reloads all data
 
-            showAlert('Project deleted successfully', 'success');
-            loadProjects();
-            updateProjectSelects();
         } catch (error) {
             console.error('Error deleting project:', error);
-            showAlert('Error deleting project', 'error');
+            showAlert(`Error deleting project: ${error.message}`, 'error');
         }
     }
 }
@@ -2911,8 +2889,6 @@ document.getElementById('order-form').addEventListener('submit', async (e) => {
         await saveOrder(payload); // This function (from vercel.js) needs to handle reloading
 
         closeOrderModal();
-        // The reload logic should be in vercel.js, but we'll refresh here just in case.
-        window.location.reload(); // Simple way to force a full data reload
 
     } catch (error) {
         console.error('Error in form submission:', error);

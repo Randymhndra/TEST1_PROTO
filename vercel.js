@@ -1,20 +1,31 @@
-// === FORCE INITIAL LOAD ===
-window.addEventListener("DOMContentLoaded", async () => {
-  console.log("🌐 DOM fully loaded — fetching all data...");
+// === PRIMARY APP LOADER ===
+window.addEventListener("DOMContentLoaded", loadAndInitializeApp);
+
+/**
+ * Fetches, normalizes, and loads all application data.
+ * This is the single source of truth for starting the app and reloading after saves.
+ */
+async function loadAndInitializeApp() {
+  console.log("🌐 Initializing application... Fetching all data.");
   try {
-    // 1. Fetch Orders
-    const ordersRes = await fetch('/api?type=orders', { cache: 'no-store' });
+    // 1. Fetch Orders and Projects in parallel
+    const [ordersRes, projectsRes] = await Promise.all([
+      fetch('/api?type=orders', { cache: 'no-store' }),
+      fetch('/api?type=projects', { cache: 'no-store' })
+    ]);
+
+    if (!ordersRes.ok) throw new Error(`Orders API failed: ${ordersRes.statusText}`);
+    if (!projectsRes.ok) throw new Error(`Projects API failed: ${projectsRes.statusText}`);
+
     const ordersData = await ordersRes.json();
-    if (!Array.isArray(ordersData)) throw new Error("Invalid data from Orders API");
-    console.log(`✅ Fetched ${ordersData.length} orders.`);
-
-    // 2. Fetch Projects
-    const projectsRes = await fetch('/api?type=projects', { cache: 'no-store' });
     const projectsData = await projectsRes.json();
-    if (!Array.isArray(projectsData)) throw new Error("Invalid data from Projects API");
-    console.log(`✅ Fetched ${projectsData.length} projects.`);
 
-    // 3. Normalize Orders
+    if (!Array.isArray(ordersData)) throw new Error("Orders API did not return an array.");
+    if (!Array.isArray(projectsData)) throw new Error("Projects API did not return an array.");
+    
+    console.log(`✅ Fetched ${ordersData.length} orders and ${projectsData.length} projects.`);
+
+    // 2. Normalize Orders
     const normalizedOrders = ordersData.map(o => ({
       order_id: o.order_id || "",
       customer_name: o.customer_name || o.customerName || "Unknown Customer",
@@ -22,7 +33,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       quantity: o.quantity || o.qty || 0,
       order_date: o.order_date || o.orderDate || "",
       target_date: o.target_date || o.targetDate || "",
-      project_id: o.project_id || o.project || null, // Ensure null for 'None'
+      project_id: o.project_id || o.project || null,
       pic_name: o.pic_name || o.picName || "",
       current_status: o.current_status || o.status || "pending",
       priority: o.priority || "medium",
@@ -35,37 +46,154 @@ window.addEventListener("DOMContentLoaded", async () => {
       tracking: o.tracking || []
     }));
     
-    // 4. Normalize Projects (you may not need this, but it's good practice)
+    // 3. Normalize Projects (This is the COMPLETE version)
     const normalizedProjects = projectsData.map(p => ({
         project_id: p.project_id,
         project_name: p.project_name,
-        client: p.client,
-        // ... add other project fields as needed
+        project_description: p.project_description || '',
+        start_date: p.start_date || '',
+        end_date: p.end_date || '',
+        client: p.client || '',
+        project_manager: p.project_manager || '',
+        status: p.status || 'planning',
+        notes: p.notes || '',
+        created_at: p.created_at || new Date().toISOString(),
+        updated_at: p.updated_at || new Date().toISOString()
     }));
 
-    // 5. Save to global variables
+    // 4. Save to global variables
     window.orders = normalizedOrders;
-    window.projects = normalizedProjects; // This overwrites the sample data
+    window.projects = normalizedProjects;
     console.log("...Data normalized and saved to window.");
 
-    // 6. Initialize UI
-    if (typeof loadDashboard === "function") {
-        console.log("📈 Loading Dashboard...");
-        loadDashboard();
-    }
-    if (typeof loadSavedLogo === "function") {
-        console.log("🎨 Loading Logo...");
-        loadSavedLogo();
-    }
-    if (typeof renderOrders === "function") {
-        console.log("🎨 Rendering orders...");
-        renderOrders(normalizedOrders); // Pre-render the hidden orders tab
-    }
+    // 5. Initialize UI
+    if (typeof loadDashboard === "function") loadDashboard();
+    if (typeof loadSavedLogo === "function") loadSavedLogo();
+    if (typeof renderOrders === "function") renderOrders(normalizedOrders);
+    if (typeof loadProjects === "function") loadProjects();
+    if (typeof updateProjectSelects === "function") updateProjectSelects();
     
     console.log("✅ Application initialized successfully.");
 
   } catch (err) {
-    console.error("❌ Failed to fetch or render initial data:", err);
-    showAlert("Could not load data from server.", "error");
+    console.error("❌ Failed to initialize application:", err);
+    if (typeof showAlert === "function") {
+      showAlert("Could not load application data from server.", "error");
+    }
   }
-});
+}
+
+
+// === API FUNCTIONS ===
+
+/**
+ * Saves (creates or updates) an order to the database via API.
+ */
+async function saveOrder(orderData) {
+  try {
+    console.log("🟡 Sending order payload to /api?type=orders:", orderData);
+    const res = await fetch('/api?type=orders', {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(orderData),
+    });
+
+    if (!res.ok) throw new Error(`Failed to save order: ${await res.text()}`);
+    
+    const result = await res.json();
+    console.log("✅ Order saved to MongoDB:", result);
+    showAlert('Order saved successfully', 'success');
+    
+    await loadAndInitializeApp(); // Reload ALL data
+    return result;
+
+  } catch (err) {
+    console.error('❌ saveOrder error:', err);
+    showAlert('Failed to save order. See console for details.', 'error');
+    throw err;
+  }
+}
+
+/**
+ * Deletes an order from the database via API.
+ */
+async function deleteOrderAPI(orderId) {
+  try {
+    console.log(`🟡 Deleting order ${orderId}...`);
+    const res = await fetch('/api?type=orders', {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ order_id: orderId }),
+    });
+
+    if (!res.ok) throw new Error(`Failed to delete order: ${await res.text()}`);
+
+    const result = await res.json();
+    console.log("✅ Order deleted from MongoDB:", result);
+    showAlert('Order deleted successfully', 'success');
+    
+    await loadAndInitializeApp(); // Reload ALL data
+    return result;
+    
+  } catch (err) {
+    console.error('❌ deleteOrderAPI error:', err);
+    showAlert('Failed to delete order. See console for details.', 'error');
+    throw err;
+  }
+}
+
+/**
+ * Saves (creates or updates) a project to the database via API.
+ */
+async function saveProjectAPI(projectData) {
+  try {
+    console.log("🟡 Sending project payload to /api?type=projects:", projectData);
+    const res = await fetch('/api?type=projects', {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(projectData),
+    });
+
+    if (!res.ok) throw new Error(`Failed to save project: ${await res.text()}`);
+    
+    const result = await res.json();
+    console.log("✅ Project saved to MongoDB:", result);
+    showAlert('Project saved successfully', 'success');
+    
+    await loadAndInitializeApp(); // Reload ALL data
+    return result;
+
+  } catch (err) {
+    console.error('❌ saveProjectAPI error:', err);
+    showAlert('Failed to save project. See console for details.', 'error');
+    throw err;
+  }
+}
+
+/**
+ * Deletes a project from the database via API.
+ */
+async function deleteProjectAPI(projectId) {
+  try {
+    console.log(`🟡 Deleting project ${projectId}...`);
+    const res = await fetch('/api?type=projects', {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project_id: projectId }),
+    });
+
+    if (!res.ok) throw new Error(`Failed to delete project: ${await res.text()}`);
+
+    const result = await res.json();
+    console.log("✅ Project deleted from MongoDB:", result);
+    showAlert('Project deleted successfully', 'success');
+    
+    await loadAndInitializeApp(); // Reload ALL data
+    return result;
+    
+  } catch (err) {
+    console.error('❌ deleteProjectAPI error:', err);
+    showAlert('Failed to delete project. See console for details.', 'error');
+    throw err;
+  }
+}
