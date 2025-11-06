@@ -880,69 +880,7 @@ function exportAllData() {
     ];
 }
 
-// Sample data for demonstration
-let orders = [
-    {
-        order_id: 'ORD-001',
-        customer_name: 'PT Maju Jaya',
-        product_description: 'Meja Kerja Kayu',
-        quantity: 5,
-        order_date: '2023-10-01',
-        target_date: '2023-10-20',
-        pic_name: 'Budi Santoso',
-        current_status: 'in_progress',
-        notes: 'Prioritas tinggi',
-        requires_accessories: true,
-        requires_welding: false,
-        progress: 40,
-        risk_level: 'MEDIUM',
-        risk_score: 60,
-        project_id: 'PRJ-001',
-        priority: 'high',
-        tracking: [
-            { process: 'warehouse_in', status: 'completed', quantity_completed: 5, defect_quantity: 0, start_time: '2023-10-02T08:00', end_time: '2023-10-02T10:00', pic_name: 'Budi', last_updated: '2023-10-02T10:00' },
-            { process: 'sanding', status: 'completed', quantity_completed: 5, defect_quantity: 1, start_time: '2023-10-02T10:30', end_time: '2023-10-02T14:00', pic_name: 'Ahmad', last_updated: '2023-10-02T14:00' },
-            { process: 'assembly', status: 'in_progress', quantity_completed: 3, defect_quantity: 0, start_time: '2023-10-03T08:00', end_time: null, pic_name: 'Sari', last_updated: '2023-10-05T16:30' },
-            { process: 'coloring', status: 'pending', quantity_completed: 0, defect_quantity: 0, start_time: null, end_time: null, pic_name: '', last_updated: null },
-            { process: 'accessories', status: 'pending', quantity_completed: 0, defect_quantity: 0, start_time: null, end_time: null, pic_name: '', last_updated: null },
-            { process: 'welding', status: 'pending', quantity_completed: 0, defect_quantity: 0, start_time: null, end_time: null, pic_name: '', last_updated: null },
-            { process: 'inspection', status: 'pending', quantity_completed: 0, defect_quantity: 0, start_time: null, end_time: null, pic_name: '', last_updated: null },
-            { process: 'coating', status: 'pending', quantity_completed: 0, defect_quantity: 0, start_time: null, end_time: null, pic_name: '', last_updated: null },
-            { process: 'packaging', status: 'pending', quantity_completed: 0, defect_quantity: 0, start_time: null, end_time: null, pic_name: '', last_updated: null },
-            { process: 'warehouse_out', status: 'pending', quantity_completed: 0, defect_quantity: 0, start_time: null, end_time: null, pic_name: '', last_updated: null }
-        ]
-    },
-    {
-        order_id: 'ORD-002',
-        customer_name: 'CV Sejahtera',
-        product_description: 'Kursi Kantor',
-        quantity: 10,
-        order_date: '2023-10-05',
-        target_date: '2023-10-25',
-        pic_name: 'Siti Rahayu',
-        current_status: 'in_progress',
-        notes: 'Warna hitam doff',
-        requires_accessories: false,
-        requires_welding: true,
-        progress: 20,
-        risk_level: 'HIGH',
-        risk_score: 75,
-        project_id: 'PRJ-001',
-        priority: 'medium',
-        tracking: [
-            { process: 'warehouse_in', status: 'completed', quantity_completed: 10, defect_quantity: 0, start_time: '2023-10-06T08:00', end_time: '2023-10-06T09:30', pic_name: 'Budi', last_updated: '2023-10-06T09:30' },
-            { process: 'sanding', status: 'completed', quantity_completed: 10, defect_quantity: 0, start_time: '2023-10-06T10:00', end_time: '2023-10-06T15:00', pic_name: 'Ahmad', last_updated: '2023-10-06T15:00' },
-            { process: 'assembly', status: 'in_progress', quantity_completed: 2, defect_quantity: 0, start_time: '2023-10-09T08:00', end_time: null, pic_name: 'Sari', last_updated: '2023-10-10T12:00' },
-            { process: 'coloring', status: 'pending', quantity_completed: 0, defect_quantity: 0, start_time: null, end_time: null, pic_name: '', last_updated: null },
-            { process: 'accessories', status: 'pending', quantity_completed: 0, defect_quantity: 0, start_time: null, end_time: null, pic_name: '', last_updated: null },
-            { process: 'welding', status: 'pending', quantity_completed: 0, defect_quantity: 0, start_time: null, end_time: null, pic_name: '', last_updated: null },
-            { process: 'inspection', status: 'pending', quantity_completed: 0, defect_quantity: 0, start_time: null, end_time: null, pic_name: '', last_updated: null },
-            { process: 'coating', status: 'pending', quantity_completed: 0, defect_quantity: 0, start_time: null, end_time: null, pic_name: '', last_updated: null },
-            { process: 'packaging', status: 'pending', quantity_completed: 0, defect_quantity: 0, start_time: null, end_time: null, pic_name: '', last_updated: null },
-            { process: 'warehouse_out', status: 'pending', quantity_completed: 0, defect_quantity: 0, start_time: null, end_time: null, pic_name: '', last_updated: null }
-        ]
-    }
-];
+let orders = []; // will be filled dynamically from MongoDB
 
 // Initialize sample projects
 projects = [
