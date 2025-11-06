@@ -9,6 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="styles.css">
     <script src="script.js" defer></script>
+    <script src="vercel.js" defer></script>
 </head>
 <body>
     <!-- Header -->
@@ -619,12 +620,14 @@
 
     <script>
     document.addEventListener("DOMContentLoaded", () => {
-        if (typeof setupRealtimeSync === "function") {
-        setupRealtimeSync(); // Start pulling data from Vercel KV
-        }
+    if (typeof setupRealtimeSync === "function") {
+        console.log("🟢 Initializing Vercel KV sync...");
+        setupRealtimeSync();
+    } else {
+        console.error("❌ setupRealtimeSync() not found. Check vercel.js import order.");
+    }
     });
     </script>
-
     <!-- Alert Messages -->
     <div id="alert-container" style="position: fixed; top: 80px; right: 24px; z-index: 999; max-width: 400px;"></div>
 </body>
