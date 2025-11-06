@@ -1,66 +1,3 @@
-document.addEventListener("DOMContentLoaded", async () => {
-  console.log("🌐 DOM fully loaded — initializing order system...");
-  if (typeof loadOrders === "function") {
-    console.log("✅ Calling loadOrders() at startup...");
-    await loadOrders();
-  } else {
-    console.warn("⚠️ loadOrders() not defined yet, will retry...");
-    const retry = setInterval(() => {
-      if (typeof loadOrders === "function") {
-        clearInterval(retry);
-        console.log("✅ loadOrders() ready, executing...");
-        loadOrders();
-      }
-    }, 300);
-  }
-});
-
-async function loadOrders() {
-  try {
-    const res = await fetch('/api?type=orders', { cache: 'no-store' });
-    const data = await res.json();
-
-    if (!Array.isArray(data)) throw new Error('Invalid response format');
-
-    const normalized = data.map(o => ({
-      order_id: o.order_id || "",
-      customer_name: o.customer_name || o.customerName || "Unknown Customer",
-      product_description: o.product_description || o.product || "",
-      quantity: o.quantity || o.qty || 0,
-      order_date: o.order_date || o.orderDate || "",
-      target_date: o.target_date || o.targetDate || "",
-      project_id: o.project_id || o.project || "",
-      pic_name: o.pic_name || o.picName || "",
-      current_status: o.current_status || o.status || "pending",
-      priority: o.priority || "medium",
-      requires_accessories: o.requires_accessories ?? o.requiresAccessories ?? false,
-      requires_welding: o.requires_welding ?? o.requiresWelding ?? false,
-      notes: o.notes || "",
-      progress: o.progress || 0,
-      risk_level: o.risk_level || o.riskLevel || "LOW",
-      risk_score: o.risk_score || o.riskScore || 0,
-      tracking: o.tracking || []
-    }));
-
-    console.log("✅ Normalized orders:", normalized);
-
-    // Pass to renderOrders once it’s ready
-    const renderCheck = setInterval(() => {
-      if (typeof renderOrders === "function") {
-        clearInterval(renderCheck);
-        console.log("🎨 Rendering orders...");
-        renderOrders(normalized);
-      } else {
-        console.warn("⏳ Waiting for renderOrders()...");
-      }
-    }, 200);
-
-  } catch (err) {
-    console.error("❌ loadOrders error:", err);
-    showAlert("Could not load orders from server.", "error");
-  }
-}
-
 async function saveOrder(orderData) {
   try {
     // Normalize field names to match MongoDB schema
@@ -150,7 +87,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     console.log("✅ Fetched from API:", data);
 
-    // ❗️ ADDED NORMALIZATION ❗️
+    // ❗️ NORMALIZATION (Using our previous fix) ❗️
     const normalized = data.map(o => ({
       order_id: o.order_id || "",
       customer_name: o.customer_name || o.customerName || "Unknown Customer",
@@ -173,12 +110,27 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     window.orders = normalized; // Save the NORMALIZED data
 
+    // --- ❗️ CORE FIX: INITIALIZE APP *AFTER* FETCH ❗️ ---
+
+    if (typeof loadDashboard === "function") {
+        console.log("📈 Loading Dashboard...");
+        loadDashboard(); // This will now use the populated 'orders' array
+    }
+
+    if (typeof loadSavedLogo === "function") {
+        console.log("🎨 Loading Logo...");
+        loadSavedLogo();
+    }
+
+    // --- ❗️ END OF CORE FIX ❗️ ---
+
     if (typeof renderOrders === "function") {
         console.log("🎨 Rendering orders...");
         renderOrders(normalized); // Render the NORMALIZED data
     } else {
         console.error("❌ renderOrders function not found! Check script.js.");
     }
+
   } catch (err) {
     console.error("❌ Failed to fetch or render orders:", err);
     showAlert("Could not load orders from server.", "error");

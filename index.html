@@ -618,32 +618,7 @@
 
     <!-- Alert Messages -->
     <div id="alert-container" style="position: fixed; top: 80px; right: 24px; z-index: 999; max-width: 400px;"></div>
-
-    <script>
-    document.addEventListener("DOMContentLoaded", () => {
-    const orderForm = document.getElementById("order-form");
-    if (!orderForm) {
-        console.error("❌ order-form not found in DOM");
-        return;
-    }
-
-    orderForm.addEventListener("submit", async (e) => {
-        e.preventDefault(); // Stop form reload
-        console.log("🟢 Order form submitted");
-
-        const formData = new FormData(orderForm);
-        const orderData = Object.fromEntries(formData.entries());
-
-        // Normalize checkboxes manually
-        orderData.requires_accessories = document.getElementById("requires-accessories").checked;
-        orderData.requires_welding = document.getElementById("requires-welding").checked;
-
-        console.log("🟡 Sending order payload:", orderData);
-        await saveOrder(orderData);
-    });
-    });
-    </script>
     <script src="script.js" defer></script>
-    <script src="vercel.js"></script>
+    <script src="vercel.js" defer></script>
 </body>
 </html>
