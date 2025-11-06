@@ -3113,13 +3113,13 @@ function showAlert(message, type = 'info') {
 loadDashboard();
 loadSavedLogo();
 
-// === AUTO LOAD DEFAULT TAB ON PAGE LOAD ===
+// ✅ Safe wrapper for optional realtime sync
+// Prevents console errors if setupRealtimeSync() is missing
 window.addEventListener("DOMContentLoaded", () => {
-  console.log("🌐 Page loaded — auto-selecting Orders tab...");
-  const defaultTab = document.querySelector('[onclick*="showTab(\'orders\', event)"]');
-  if (defaultTab) {
-    defaultTab.click(); // triggers the normal tab behavior
+  if (typeof setupRealtimeSync === "function") {
+    console.log("🔄 Realtime sync active");
+    setupRealtimeSync();
   } else {
-    showTab('orders'); // fallback if selector fails
+    console.warn("❌ setupRealtimeSync() not found. Realtime sync disabled.");
   }
 });
