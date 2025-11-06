@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 
-// ✅ MongoDB URI (Proto DB)
 const MONGODB_URI =
   process.env.MONGODB_URI ||
   "mongodb+srv://Verc3L:cVUPUNi1bTH51Dlz@tvrggydb.kufz1s1.mongodb.net?retryWrites=true&w=majority";

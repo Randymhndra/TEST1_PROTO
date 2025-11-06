@@ -148,6 +148,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     const res = await fetch('/api?type=orders', { cache: 'no-store' });
     const orders = await res.json();
     console.log("✅ Fetched from API:", orders);
+    window.orders = orders;
     if (typeof renderOrders === "function") renderOrders(orders);
   } catch (err) {
     console.error("❌ Failed to fetch orders:", err);
