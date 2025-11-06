@@ -62,15 +62,25 @@ async function loadAndInitializeApp() {
     }));
 
     // 4. Save to global variables
+    // These are the single source of truth for the app
     window.orders = normalizedOrders;
     window.projects = normalizedProjects;
     console.log("...Data normalized and saved to window.");
 
     // 5. Initialize UI
+    // These functions (from script.js) will now use the window.orders/projects
     if (typeof loadDashboard === "function") loadDashboard();
     if (typeof loadSavedLogo === "function") loadSavedLogo();
-    if (typeof renderOrders === "function") renderOrders(normalizedOrders);
-    if (typeof loadProjects === "function") loadProjects();
+    
+    // Check which tab is active and render it
+    const activeTab = document.querySelector('.tab-content.active').id || 'dashboard';
+    if (activeTab === 'orders') {
+        renderOrders(normalizedOrders);
+    } else if (activeTab === 'projects') {
+        loadProjects();
+    }
+    // All other tabs are populated on-demand by showTab()
+
     if (typeof updateProjectSelects === "function") updateProjectSelects();
     
     console.log("✅ Application initialized successfully.");

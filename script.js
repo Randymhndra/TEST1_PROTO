@@ -139,7 +139,7 @@ async function saveOrdersToDatabase() {
     const response = await fetch('/api?type=orders', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(orders)
+      body: JSON.stringify(orders) // Note: This will now refer to window.orders
     });
 
     if (!response.ok) {
@@ -406,9 +406,6 @@ function loadSavedLogo() {
 }
 
 // Project Management
-let projects = [];
-let projectIdCounter = 1;
-
 function openProjectModal(projectId = null) {
     const modal = document.getElementById('projectModal');
     const title = document.getElementById('project-modal-title');
@@ -527,11 +524,12 @@ async function deleteProject(projectId) {
 function loadProjects() {
     let html = '';
     
-    if (projects.length === 0) {
+    // Use window.projects and window.orders
+    if (!window.projects || window.projects.length === 0) {
         html = '<div style="text-align: center; padding: 40px; color: #6c757d;">No projects found. Create your first project to get started.</div>';
     } else {
-        projects.forEach(project => {
-            const projectOrders = orders.filter(o => o.project_id === project.project_id);
+        window.projects.forEach(project => {
+            const projectOrders = window.orders.filter(o => o.project_id === project.project_id);
             const totalQuantity = projectOrders.reduce((sum, order) => sum + order.quantity, 0);
             const completedQuantity = projectOrders.reduce((sum, order) => {
                 const warehouseOut = order.tracking.find(t => t.process === 'warehouse_out');
@@ -632,11 +630,14 @@ function loadProjects() {
 
 // Update project select options in forms
 function updateProjectSelects() {
+    // Use window.projects
+    const projectList = window.projects || [];
+    
     // Update order form project select
     const orderProjectSelect = document.getElementById('order-project-select');
     if (orderProjectSelect) {
         let html = '<option value="">-- No Project --</option>';
-        projects.filter(p => p.status !== 'completed').forEach(project => {
+        projectList.filter(p => p.status !== 'completed').forEach(project => {
             html += `<option value="${project.project_id}">${project.project_name} (${project.client})</option>`;
         });
         orderProjectSelect.innerHTML = html;
@@ -646,7 +647,7 @@ function updateProjectSelects() {
     const dssProjectSelect = document.getElementById('dss-project-select');
     if (dssProjectSelect) {
         let html = '<option value="">-- Select Project --</option>';
-        projects.forEach(project => {
+        projectList.forEach(project => {
             html += `<option value="${project.project_id}">${project.project_name} (${project.client})</option>`;
         });
         dssProjectSelect.innerHTML = html;
@@ -719,8 +720,9 @@ function exportToExcel(type) {
 
 // Export projects data
 function exportProjectsData() {
-    return projects.map(project => {
-        const projectOrders = orders.filter(o => o.project_id === project.project_id);
+    // Use window.projects and window.orders
+    return (window.projects || []).map(project => {
+        const projectOrders = (window.orders || []).filter(o => o.project_id === project.project_id);
         const totalQuantity = projectOrders.reduce((sum, order) => sum + order.quantity, 0);
         const completedQuantity = projectOrders.reduce((sum, order) => {
             const warehouseOut = order.tracking.find(t => t.process === 'warehouse_out');
@@ -750,8 +752,9 @@ function exportProjectsData() {
 
 // Export orders data
 function exportOrdersData() {
-    return orders.map(order => {
-        const project = projects.find(p => p.project_id === order.project_id);
+    // Use window.orders and window.projects
+    return (window.orders || []).map(order => {
+        const project = (window.projects || []).find(p => p.project_id === order.project_id);
         return {
             'Order ID': order.order_id,
             'Customer': order.customer_name,
@@ -776,8 +779,9 @@ function exportOrdersData() {
 function exportTrackingData() {
     const trackingData = [];
     
-    orders.forEach(order => {
-        const project = projects.find(p => p.project_id === order.project_id);
+    // Use window.orders and window.projects
+    (window.orders || []).forEach(order => {
+        const project = (window.projects || []).find(p => p.project_id === order.project_id);
         order.tracking.forEach(track => {
             const process = productionProcesses.find(p => p.id === track.process);
             trackingData.push({
@@ -822,6 +826,10 @@ function exportEfficiencyData() {
 
 // Export all data
 function exportAllData() {
+    // Use window.orders and window.projects
+    const orderList = window.orders || [];
+    const projectList = window.projects || [];
+    
     return [
         {
             name: 'Orders',
@@ -843,42 +851,29 @@ function exportAllData() {
             name: 'Summary',
             data: [
                 {
-                    'Total Orders': orders.length,
-                    'Total Projects': projects.length,
-                    'Orders In Progress': orders.filter(o => o.current_status === 'in_progress').length,
-                    'Orders Completed': orders.filter(o => o.current_status === 'completed').length,
-                    'Projects In Progress': projects.filter(p => p.status === 'in_progress').length,
-                    'Projects Completed': projects.filter(p => p.status === 'completed').length,
-                    'Average Order Progress': `${(orders.reduce((sum, o) => sum + o.progress, 0) / orders.length).toFixed(1)}%`,
-                    'Average Order Risk Score': (orders.reduce((sum, o) => sum + o.risk_score, 0) / orders.length).toFixed(1),
-                    'Critical Orders': orders.filter(o => o.risk_level === 'CRITICAL').length
+                    'Total Orders': orderList.length,
+                    'Total Projects': projectList.length,
+                    'Orders In Progress': orderList.filter(o => o.current_status === 'in_progress').length,
+                    'Orders Completed': orderList.filter(o => o.current_status === 'completed').length,
+                    'Projects In Progress': projectList.filter(p => p.status === 'in_progress').length,
+                    'Projects Completed': projectList.filter(p => p.status === 'completed').length,
+                    'Average Order Progress': `${(orderList.reduce((sum, o) => sum + o.progress, 0) / orderList.length).toFixed(1)}%`,
+                    'Average Order Risk Score': (orderList.reduce((sum, o) => sum + o.risk_score, 0) / orderList.length).toFixed(1),
+                    'Critical Orders': orderList.filter(o => o.risk_level === 'CRITICAL').length
                 }
             ]
         }
     ];
 }
 
-let orders = []; // will be filled dynamically from MongoDB
-
-// Initialize sample projects
-projects = [
-    {
-        project_id: 'PRJ-001',
-        project_name: 'Office Furniture Project',
-        project_description: 'Complete office furniture set for client',
-        start_date: '2023-10-01',
-        end_date: '2023-10-25',
-        client: 'PT Maju Jaya',
-        project_manager: 'Budi Santoso',
-        status: 'in_progress',
-        notes: 'High priority project',
-        created_date: '2023-10-01',
-        orders: ['ORD-001', 'ORD-002']
-    }
-];
-projectIdCounter = 2;
+// *** DELETED VARIABLE DECLARATIONS ***
+// `let orders = [];` was removed.
+// `projects = [...]` sample data was removed.
+// All functions will now correctly use `window.orders` and `window.projects`
+// which are populated by vercel.js
 
 // Chart instances
+// ** FIXED: Added all missing chart variables **
 let progressChart = null;
 let processEfficiencyChart = null;
 let riskTimelineChart = null;
@@ -887,6 +882,10 @@ let combinedEfficiencyChart = null;
 let bottleneckChart = null;
 let projectTimelineChart = null;
 let projectRiskChart = null;
+let processFlowChart = null;
+let projectProcessEfficiencyChart = null;
+let projectRiskDistributionChart = null;
+let orderProjectTimelineChart = null;
 
 // Improved Risk Assessment Function
 function calculateRiskAssessment(order) {
@@ -961,7 +960,7 @@ function calculateRiskAssessment(order) {
 
 // Project Risk Assessment Function
 function calculateProjectRiskAssessment(project) {
-    const projectOrders = orders.filter(o => o.project_id === project.project_id);
+    const projectOrders = (window.orders || []).filter(o => o.project_id === project.project_id);
     
     if (projectOrders.length === 0) {
         return {
@@ -1066,10 +1065,16 @@ function showTab(tabName, event) {
     document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
     
     document.getElementById(tabName).classList.add('active');
-    event.target.classList.add('active');
+    if (event) { // Add check for event, as it might be called programmatically
+        event.target.classList.add('active');
+    }
+
+    // Use window.orders and window.projects
+    const orderList = window.orders || [];
+    const projectList = window.projects || [];
 
     if (tabName === 'orders') {
-        renderOrders(orders);
+        renderOrders(orderList); // Use the global list
     } else if (tabName === 'projects') {
         loadProjects();
     } else if (tabName === 'tracking') {
@@ -1087,20 +1092,24 @@ function showTab(tabName, event) {
 // Load Dashboard
 async function loadDashboard() {
     try {
+        // Use window.orders and window.projects
+        const orderList = window.orders || [];
+        const projectList = window.projects || [];
+
         // Update risk assessment for all orders
-        orders.forEach(order => {
+        orderList.forEach(order => {
             const riskAssessment = calculateRiskAssessment(order);
             order.risk_level = riskAssessment.risk_level;
             order.risk_score = riskAssessment.risk_score;
         });
 
         // Calculate KPIs
-        const totalOrders = orders.length;
-        const activeProjects = projects.filter(p => p.status === 'in_progress').length;
-        const completedOrders = orders.filter(o => o.current_status === 'completed').length;
-        const criticalOrders = orders.filter(o => o.risk_level === 'CRITICAL').length;
+        const totalOrders = orderList.length;
+        const activeProjects = projectList.filter(p => p.status === 'in_progress').length;
+        const completedOrders = orderList.filter(o => o.current_status === 'completed').length;
+        const criticalOrders = orderList.filter(o => o.risk_level === 'CRITICAL').length;
         
-        const avgProgress = orders.reduce((sum, order) => sum + order.progress, 0) / totalOrders;
+        const avgProgress = totalOrders > 0 ? orderList.reduce((sum, order) => sum + order.progress, 0) / totalOrders : 0;
         const avgLeadTime = 48; // This would come from actual data
         const defectRate = 2.5; // This would come from actual data
 
@@ -1114,10 +1123,10 @@ async function loadDashboard() {
 
         // Update risk orders table
         let riskHtml = '';
-        const atRiskOrders = orders.filter(o => o.risk_level === 'CRITICAL' || o.risk_level === 'HIGH');
+        const atRiskOrders = orderList.filter(o => o.risk_level === 'CRITICAL' || o.risk_level === 'HIGH');
         
         atRiskOrders.forEach(order => {
-            const project = projects.find(p => p.project_id === order.project_id);
+            const project = projectList.find(p => p.project_id === order.project_id);
             const riskColor = order.risk_level === 'CRITICAL' ? 'danger' : 
                             order.risk_level === 'HIGH' ? 'warning' : 
                             order.risk_level === 'MEDIUM' ? 'info' : 'success';
@@ -1162,11 +1171,11 @@ async function loadDashboard() {
 
 // Detect bottleneck in production
 function detectBottleneck() {
-    // This would normally analyze all orders to find the slowest process
-    // For demo purposes, we'll use a simple detection
+    // Use window.orders
+    const orderList = window.orders || [];
     const slowProcesses = {};
     
-    orders.forEach(order => {
+    orderList.forEach(order => {
         order.tracking.forEach(process => {
             if (process.start_time && process.end_time) {
                 const start = new Date(process.start_time);
@@ -1209,8 +1218,11 @@ function detectBottleneck() {
 function renderOrders(ordersToRender) {
     try {
         let html = '';
+        // Use window.projects
+        const projectList = window.projects || [];
+        
         ordersToRender.forEach(order => {
-            const project = projects.find(p => p.project_id === order.project_id);
+            const project = projectList.find(p => p.project_id === order.project_id);
             const statusColor = order.current_status === 'completed' ? 'success' : 
                                 order.current_status === 'in_progress' ? 'info' : 
                                 order.current_status === 'on_hold' ? 'warning' : 'accent';
@@ -1269,8 +1281,10 @@ function renderOrders(ordersToRender) {
 // Load Orders for Tracking
 async function loadOrdersForTracking() {
     try {
+        // Use window.orders
+        const orderList = window.orders || [];
         let html = '<option value="">-- Select Order --</option>';
-        orders.filter(o => o.current_status !== 'completed').forEach(order => {
+        orderList.filter(o => o.current_status !== 'completed').forEach(order => {
             html += `<option value="${order.order_id}">${order.order_id} - ${order.customer_name}</option>`;
         });
 
@@ -1284,8 +1298,10 @@ async function loadOrdersForTracking() {
 // Load Orders for DSS
 async function loadOrdersForDSS() {
     try {
+        // Use window.orders
+        const orderList = window.orders || [];
         let html = '<option value="">-- Select Order --</option>';
-        orders.forEach(order => {
+        orderList.forEach(order => {
             html += `<option value="${order.order_id}">${order.order_id} - ${order.customer_name}</option>`;
         });
 
@@ -1304,7 +1320,8 @@ function loadOrderTracking() {
         return;
     }
 
-    const order = orders.find(o => o.order_id === orderId);
+    // Use window.orders
+    const order = (window.orders || []).find(o => o.order_id === orderId);
     if (!order) return;
 
     document.getElementById('order-tracking-info').style.display = 'block';
@@ -1472,7 +1489,8 @@ async function analyzeOrder() {
     if (!orderId) return;
 
     try {
-        const order = orders.find(o => o.order_id === orderId);
+        // Use window.orders
+        const order = (window.orders || []).find(o => o.order_id === orderId);
         if (!order) return;
 
         // Update risk assessment
@@ -1570,10 +1588,11 @@ async function analyzeProject() {
     if (!projectId) return;
 
     try {
-        const project = projects.find(p => p.project_id === projectId);
+        // Use window.projects and window.orders
+        const project = (window.projects || []).find(p => p.project_id === projectId);
         if (!project) return;
 
-        const projectOrders = orders.filter(o => o.project_id === projectId);
+        const projectOrders = (window.orders || []).filter(o => o.project_id === projectId);
         
         // Update risk assessment for project
         const riskAssessment = calculateProjectRiskAssessment(project);
@@ -1863,17 +1882,21 @@ function generateProjectRecommendations(project, riskAssessment, projectOrders) 
 // Analyze All Orders (Combined Analysis)
 function analyzeAllOrders() {
     try {
+        // Use window.orders and window.projects
+        const orderList = window.orders || [];
+        const projectList = window.projects || [];
+
         // Calculate overall metrics
-        const totalOrders = orders.length;
-        const totalProjects = projects.length;
-        const completedOrders = orders.filter(o => o.current_status === 'completed').length;
-        const inProgressOrders = orders.filter(o => o.current_status === 'in_progress').length;
-        const pendingOrders = orders.filter(o => o.current_status === 'pending').length;
-        const completedProjects = projects.filter(p => p.status === 'completed').length;
-        const inProgressProjects = projects.filter(p => p.status === 'in_progress').length;
+        const totalOrders = orderList.length;
+        const totalProjects = projectList.length;
+        const completedOrders = orderList.filter(o => o.current_status === 'completed').length;
+        const inProgressOrders = orderList.filter(o => o.current_status === 'in_progress').length;
+        const pendingOrders = orderList.filter(o => o.current_status === 'pending').length;
+        const completedProjects = projectList.filter(p => p.status === 'completed').length;
+        const inProgressProjects = projectList.filter(p => p.status === 'in_progress').length;
         
-        const avgProgress = orders.reduce((sum, order) => sum + order.progress, 0) / totalOrders;
-        const avgRiskScore = orders.reduce((sum, order) => sum + order.risk_score, 0) / totalOrders;
+        const avgProgress = totalOrders > 0 ? orderList.reduce((sum, order) => sum + order.progress, 0) / totalOrders : 0;
+        const avgRiskScore = totalOrders > 0 ? orderList.reduce((sum, order) => sum + order.risk_score, 0) / totalOrders : 0;
         
         // Calculate process efficiency across all orders
         const processEfficiency = {};
@@ -1881,7 +1904,7 @@ function analyzeAllOrders() {
             let totalEfficiency = 0;
             let count = 0;
             
-            orders.forEach(order => {
+            orderList.forEach(order => {
                 const tracking = order.tracking.find(t => t.process === process.id);
                 if (tracking && tracking.start_time && tracking.end_time) {
                     const start = new Date(tracking.start_time);
@@ -1924,7 +1947,7 @@ function analyzeAllOrders() {
             very_low: 0
         };
         
-        projects.forEach(project => {
+        projectList.forEach(project => {
             const riskAssessment = calculateProjectRiskAssessment(project);
             projectRiskDistribution[riskAssessment.risk_level.toLowerCase().replace(' ', '_')]++;
         });
@@ -1949,7 +1972,7 @@ function analyzeAllOrders() {
                     <h4><i class="fas fa-exclamation-triangle"></i> Risk Overview</h4>
                     <div class="kpi-value" style="color: ${avgRiskScore > 70 ? 'var(--danger-color)' : avgRiskScore > 50 ? 'var(--warning-color)' : 'var(--success-color)'}">${avgRiskScore > 70 ? 'HIGH' : avgRiskScore > 50 ? 'MEDIUM' : 'LOW'}</div>
                     <div class="kpi-label">Overall Risk Level</div>
-                    <div class="kpi-label">Critical Orders: ${orders.filter(o => o.risk_level === 'CRITICAL').length}</div>
+                    <div class="kpi-label">Critical Orders: ${orderList.filter(o => o.risk_level === 'CRITICAL').length}</div>
                 </div>
             </div>
 
@@ -2007,12 +2030,14 @@ function analyzeAllOrders() {
 // Analyze bottlenecks across all orders
 function analyzeBottlenecks() {
     const processDelays = {};
+    // Use window.orders
+    const orderList = window.orders || [];
     
     productionProcesses.forEach(process => {
         let totalDelay = 0;
         let count = 0;
         
-        orders.forEach(order => {
+        orderList.forEach(order => {
             const tracking = order.tracking.find(t => t.process === process.id);
             if (tracking && tracking.start_time && tracking.end_time) {
                 const start = new Date(tracking.start_time);
@@ -2316,6 +2341,10 @@ function renderResourceAllocationChart(order) {
 function renderProcessFlowChart(order) {
     const ctx = document.getElementById('processFlowChart').getContext('2d');
     
+    if (processFlowChart) {
+        processFlowChart.destroy();
+    }
+    
     // Filter processes based on order requirements
     const applicableProcesses = productionProcesses.filter(process => {
         if (process.optional) {
@@ -2331,7 +2360,7 @@ function renderProcessFlowChart(order) {
         return (tracking.quantity_completed / order.quantity) * 100;
     });
     
-    new Chart(ctx, {
+    processFlowChart = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: processLabels,
@@ -2658,11 +2687,11 @@ function renderProjectResourceChart(projectOrders) {
 function renderProjectRiskDistributionChart(riskDistribution) {
     const ctx = document.getElementById('projectRiskDistributionChart').getContext('2d');
     
-    if (projectRiskChart) {
-        projectRiskChart.destroy();
+    if (projectRiskDistributionChart) {
+        projectRiskDistributionChart.destroy();
     }
     
-    projectRiskChart = new Chart(ctx, {
+    projectRiskDistributionChart = new Chart(ctx, {
         type: 'pie',
         data: {
             labels: ['Critical', 'High', 'Medium', 'Low', 'Very Low'],
@@ -2706,11 +2735,19 @@ function renderProjectRiskDistributionChart(riskDistribution) {
 function renderOrderProjectTimelineChart() {
     const ctx = document.getElementById('orderProjectTimelineChart').getContext('2d');
     
+    if (orderProjectTimelineChart) {
+        orderProjectTimelineChart.destroy();
+    }
+    
+    // Use window.orders and window.projects
+    const orderList = window.orders || [];
+    const projectList = window.projects || [];
+    
     // Group orders by project
     const projectData = {};
     
-    projects.forEach(project => {
-        const projectOrders = orders.filter(o => o.project_id === project.project_id);
+    projectList.forEach(project => {
+        const projectOrders = orderList.filter(o => o.project_id === project.project_id);
         if (projectOrders.length > 0) {
             projectData[project.project_name] = {
                 totalOrders: projectOrders.length,
@@ -2721,7 +2758,7 @@ function renderOrderProjectTimelineChart() {
     });
     
     // Add orders without projects
-    const noProjectOrders = orders.filter(o => !o.project_id);
+    const noProjectOrders = orderList.filter(o => !o.project_id);
     if (noProjectOrders.length > 0) {
         projectData['No Project'] = {
             totalOrders: noProjectOrders.length,
@@ -2730,7 +2767,7 @@ function renderOrderProjectTimelineChart() {
         };
     }
     
-    new Chart(ctx, {
+    orderProjectTimelineChart = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: Object.keys(projectData),
@@ -2768,20 +2805,23 @@ function renderOrderProjectTimelineChart() {
 
 // View Order Risk Details
 function viewOrderRisk(orderId) {
-    const order = orders.find(o => o.order_id === orderId);
+    // Use window.orders
+    const order = (window.orders || []).find(o => o.order_id === orderId);
     if (!order) return;
     
     const riskAssessment = calculateRiskAssessment(order);
     
     document.getElementById('dss-order-select').value = orderId;
-    showTab('dss');
+    // Programmatically switch tab
+    showTab('dss', document.querySelector('.nav-link[onclick*="showTab(\'dss\'"]'));
     analyzeOrder();
 }
 
 // Analyze Order Direct
 function analyzeOrderDirect(orderId) {
     document.getElementById('dss-order-select').value = orderId;
-    showTab('dss');
+    // Programmatically switch tab
+    showTab('dss', document.querySelector('.nav-link[onclick*="showTab(\'dss\'"]'));
     showDssTab('single');
     analyzeOrder();
 }
@@ -2800,7 +2840,8 @@ function openOrderModal(orderId = null) {
         submitButton.innerHTML = '<i class="fas fa-save"></i> Update Order';
         
         // Load order data
-        const order = orders.find(o => o.order_id === orderId);
+        // Use window.orders
+        const order = (window.orders || []).find(o => o.order_id === orderId);
         if (order) {
             document.getElementById('order-id').value = order.order_id;
             document.querySelector('input[name="customer_name"]').value = order.customer_name;
@@ -2882,7 +2923,8 @@ document.getElementById('order-form').addEventListener('submit', async (e) => {
         let payload = data;
         if(orderId) {
             // We are editing, merge with existing data
-            const existingOrder = orders.find(o => o.order_id === orderId);
+            // Use window.orders
+            const existingOrder = (window.orders || []).find(o => o.order_id === orderId);
             payload = { ...existingOrder, ...data };
         }
 
@@ -2939,7 +2981,8 @@ document.getElementById('tracking-form').addEventListener('submit', async (e) =>
     const data = Object.fromEntries(formData);
 
     try {
-        const order = orders.find(o => o.order_id === orderId);
+        // Use window.orders
+        const order = (window.orders || []).find(o => o.order_id === orderId);
         if (order) {
             const trackingIndex = order.tracking.findIndex(t => t.process === processId);
             if (trackingIndex !== -1) {
@@ -2973,10 +3016,17 @@ document.getElementById('tracking-form').addEventListener('submit', async (e) =>
 
                 // Update order status and progress
                 updateOrderStatus(order);
+                
+                // ** CRITICAL: Save the updated order back to the database **
+                // We need to save the *entire order* object
+                if (typeof saveOrder !== 'function') {
+                    throw new Error('saveOrder function is not defined. Check vercel.js');
+                }
+                await saveOrder(order); // This will save and reload the app
 
                 showAlert('Tracking updated successfully', 'success');
                 e.target.reset();
-                loadOrderTracking();
+                loadOrderTracking(); // This will run again after saveOrder reloads, which is fine
                 
                 // Refresh DSS analysis if we're on that tab
                 if (document.getElementById('dss').classList.contains('active')) {
