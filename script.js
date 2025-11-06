@@ -3113,13 +3113,16 @@ function showAlert(message, type = 'info') {
 loadDashboard();
 loadSavedLogo();
 
-// ✅ Safe wrapper for optional realtime sync
-// Prevents console errors if setupRealtimeSync() is missing
+// === AUTO LOAD DEFAULT TAB ON PAGE LOAD ===
 window.addEventListener("DOMContentLoaded", () => {
-  if (typeof setupRealtimeSync === "function") {
-    console.log("🔄 Realtime sync active");
-    setupRealtimeSync();
+  // You can change 'orders' to 'dashboard' if you want that as default
+  console.log("🌐 Page loaded — auto-selecting Orders tab...");
+  const defaultTab = document.querySelector('[onclick*="showTab(\'orders")"]');
+  if (defaultTab) {
+    // Simulate a click so event styling & logic both run
+    defaultTab.click();
   } else {
-    console.warn("❌ setupRealtimeSync() not found. Realtime sync disabled.");
+    // Fallback — manually call if button not found
+    showTab('orders');
   }
 });
