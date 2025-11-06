@@ -556,29 +556,109 @@ async function handleTracking(req, res, method, id) {
 }
 
 // Export handler
+import * as XLSX from 'xlsx'; // make sure this import exists at the top of your file
+
 async function handleExport(req, res, method) {
+  if (method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const { query } = req;
+  const { target } = query;
+
   try {
-    if (method !== 'GET') {
-      return res.status(405).json({ error: 'Method not allowed' });
+    // Load all datasets from KV
+    const [orders, projects, tracking, settings] = await Promise.all([
+      getFromKV('orders') || [],
+      getFromKV('projects') || [],
+      getFromKV('tracking') || [],
+      getFromKV('settings') || {}
+    ]);
+
+    const workbook = XLSX.utils.book_new();
+
+    // --- CASE 1: Orders Data ---
+    if (target === 'orders') {
+      const ws = XLSX.utils.json_to_sheet(orders || []);
+      XLSX.utils.book_append_sheet(workbook, ws, 'Orders');
     }
-    const orders = await getFromKV('orders') || [];
-    const projects = await getFromKV('projects') || [];
-    const settings = await getFromKV('settings') || {};
-    
-    const exportData = {
-      orders,
-      projects,
-      settings,
-      exported_at: new Date().toISOString(),
-      total_orders: orders.length,
-      total_projects: projects.length
-    };
-    
-    return res.status(200).json(exportData);
-    
+
+    // --- CASE 2: Projects Data ---
+    else if (target === 'projects') {
+      const ws = XLSX.utils.json_to_sheet(projects || []);
+      XLSX.utils.book_append_sheet(workbook, ws, 'Projects');
+    }
+
+    // --- CASE 3: Tracking Data ---
+    else if (target === 'tracking') {
+      const ws = XLSX.utils.json_to_sheet(tracking || []);
+      XLSX.utils.book_append_sheet(workbook, ws, 'Tracking');
+    }
+
+    // --- CASE 4: Efficiency Report ---
+    else if (target === 'efficiency') {
+      const efficiency = settings?.efficiency
+        ? Object.entries(settings.efficiency).map(([key, value]) => ({
+            process_id: key,
+            process_name: value.name,
+            target_time: value.targetTime,
+            target_quality: value.targetQuality,
+            target_output: value.targetOutput,
+            criteria: Array.isArray(value.criteria)
+              ? value.criteria.join('; ')
+              : value.criteria || ''
+          }))
+        : [];
+      const ws = XLSX.utils.json_to_sheet(efficiency);
+      XLSX.utils.book_append_sheet(workbook, ws, 'Efficiency');
+    }
+
+    // --- CASE 5: Complete Report ---
+    else if (target === 'complete') {
+      const wsOrders = XLSX.utils.json_to_sheet(orders || []);
+      XLSX.utils.book_append_sheet(workbook, wsOrders, 'Orders');
+
+      const wsProjects = XLSX.utils.json_to_sheet(projects || []);
+      XLSX.utils.book_append_sheet(workbook, wsProjects, 'Projects');
+
+      const wsTracking = XLSX.utils.json_to_sheet(tracking || []);
+      XLSX.utils.book_append_sheet(workbook, wsTracking, 'Tracking');
+
+      const efficiency = settings?.efficiency
+        ? Object.entries(settings.efficiency).map(([key, value]) => ({
+            process_id: key,
+            process_name: value.name,
+            target_time: value.targetTime,
+            target_quality: value.targetQuality,
+            target_output: value.targetOutput,
+            criteria: Array.isArray(value.criteria)
+              ? value.criteria.join('; ')
+              : value.criteria || ''
+          }))
+        : [];
+      const wsEfficiency = XLSX.utils.json_to_sheet(efficiency);
+      XLSX.utils.book_append_sheet(workbook, wsEfficiency, 'Efficiency');
+    }
+
+    // --- Invalid Target ---
+    else {
+      return res.status(400).json({ error: 'Invalid export target' });
+    }
+
+    // Write workbook to buffer and send
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=${target}-report.xlsx`
+    );
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    return res.status(200).send(buffer);
   } catch (error) {
-    console.error('Error in handleExport:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error('❌ Export error:', error);
+    return res.status(500).json({ error: 'Error exporting data' });
   }
 }
 
