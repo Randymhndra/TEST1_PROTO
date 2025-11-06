@@ -124,13 +124,11 @@ async function saveOrder(orderData) {
   }
 }
 
-/**
- * Deletes an order from the database via API.
- */
+// RIGHT
 async function deleteOrderAPI(orderId) {
   try {
     console.log(`🟡 Deleting order ${orderId}...`);
-    const res = await fetch('/api?type=orders', {
+    const res = await fetch('/api?type=orders', { // <-- Use query param
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ order_id: orderId }),
@@ -180,13 +178,11 @@ async function saveProjectAPI(projectData) {
   }
 }
 
-/**
- * Deletes a project from the database via API.
- */
+// RIGHT
 async function deleteProjectAPI(projectId) {
   try {
     console.log(`🟡 Deleting project ${projectId}...`);
-    const res = await fetch('/api?type=projects', {
+    const res = await fetch('/api?type=projects', { // <-- Use query param
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ project_id: projectId }),
