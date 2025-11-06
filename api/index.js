@@ -10,7 +10,7 @@ if (!global._mongooseConnection) {
   global._mongooseConnection = mongoose
     .connect(MONGODB_URI, { serverSelectionTimeoutMS: 5000 })
     .then((conn) => {
-      console.log("✅ Connected to MongoDB Atlas (Proto)");
+      console.log("✅ Connected to MongoDB Atlas");
       return conn;
     })
     .catch((err) => {
@@ -25,9 +25,9 @@ const ProjectSchema = new mongoose.Schema({}, { strict: false });
 
 // ✅ Models (force correct collection names)
 const Order =
-  mongoose.models.Order || mongoose.model("Order", OrderSchema, "Order");
+  mongoose.models.Order || mongoose.model("Order", OrderSchema, "orders");
 const Project =
-  mongoose.models.Project || mongoose.model("Project", ProjectSchema, "Project");
+  mongoose.models.Project || mongoose.model("Project", ProjectSchema, "projects");
 
 export const config = { api: { bodyParser: true } };
 
