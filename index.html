@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Java Connection - Production Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="logo-container">
+            <div class="logo-main">
+                <i class="fas fa-industry" id="logo-icon"></i>
+                <span id="logo-text">Java CONNECTION</span>
+            </div>
+            <div class="logo-sub">EXPORT & WHOLESALE</div>
+            <button class="logo-change-btn" onclick="openLogoModal()">
+                <i class="fas fa-edit"></i>
+            </button>
+        </div>
+        <nav>
+            <a class="nav-link active" onclick="showTab('dashboard')">
+                <i class="fas fa-tachometer-alt"></i> Dashboard
+            </a>
+            <a class="nav-link" onclick="showTab('orders')">
+                <i class="fas fa-clipboard-list"></i> Orders
+            </a>
+            <a class="nav-link" onclick="showTab('projects')">
+                <i class="fas fa-project-diagram"></i> Projects
+            </a>
+            <a class="nav-link" onclick="showTab('tracking')">
+                <i class="fas fa-map-marker-alt"></i> Tracking
+            </a>
+            <a class="nav-link" onclick="showTab('dss')">
+                <i class="fas fa-chart-line"></i> DSS Analysis
+            </a>
+            <a class="nav-link" onclick="showTab('efficiency')">
+                <i class="fas fa-cogs"></i> Efficiency
+            </a>
+            <a class="nav-link" onclick="openExportModal()">
+                <i class="fas fa-file-export"></i> Export
+            </a>
+        </nav>
+    </header>
+
+    <div class="container">
+        <!-- Dashboard Tab -->
+        <div id="dashboard" class="tab-content active">
+            <h2><i class="fas fa-tachometer-alt"></i> Production Dashboard</h2>
+
+            <!-- KPI Cards -->
+            <div class="dashboard-grid">
+                <div class="kpi-card success">
+                    <div class="kpi-label">
+                        <i class="fas fa-clipboard-list"></i> Total Orders
+                    </div>
+                    <div class="kpi-value" id="total-orders">0</div>
+                    <div class="kpi-change">This Month</div>
+                </div>
+                <div class="kpi-card info">
+                    <div class="kpi-label">
+                        <i class="fas fa-project-diagram"></i> Active Projects
+                    </div>
+                    <div class="kpi-value" id="active-projects">0</div>
+                    <div class="kpi-change">Current Projects</div>
+                </div>
+                <div class="kpi-card success">
+                    <div class="kpi-label">
+                        <i class="fas fa-check-circle"></i> Completed
+                    </div>
+                    <div class="kpi-value" id="completed-orders">0%</div>
+                    <div class="kpi-change">Completion Rate</div>
+                </div>
+                <div class="kpi-card danger">
+                    <div class="kpi-label">
+                        <i class="fas fa-exclamation-triangle"></i> At Risk
+                    </div>
+                    <div class="kpi-value" id="at-risk">0</div>
+                    <div class="kpi-change">Critical Orders</div>
+                </div>
+            </div>
+
+            <!-- Bottleneck Alert -->
+            <div id="bottleneck-alert" style="margin-bottom: 24px;"></div>
+
+            <!-- At-Risk Orders -->
+            <div class="table-container" style="margin-bottom: 24px;">
+                <div style="padding: 20px; border-bottom: 1px solid var(--border-color);">
+                    <h3><i class="fas fa-exclamation-circle"></i> Orders at Risk</h3>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Customer</th>
+                            <th>Project</th>
+                            <th>Risk Level</th>
+                            <th>Risk Score</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="risk-orders-table">
+                        <tr><td colspan="6" style="text-align: center; color: #6c757d;">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- KPI Metrics -->
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
+                <div class="kpi-card">
+                    <div class="kpi-label">
+                        <i class="fas fa-clock"></i> Avg Lead Time
+                    </div>
+                    <div class="kpi-value" id="avg-lead-time" style="font-size: 28px;">-</div>
+                    <div class="kpi-change">hours</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">
+                        <i class="fas fa-bug"></i> Defect Rate
+                    </div>
+                    <div class="kpi-value" id="defect-rate" style="font-size: 28px;">-</div>
+                    <div class="kpi-change">percent</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">
+                        <i class="fas fa-tachometer-alt"></i> Bottleneck
+                    </div>
+                    <div class="kpi-value" id="bottleneck-stage" style="font-size: 20px;">-</div>
+                    <div class="kpi-change" id="bottleneck-risk">-</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Orders Tab -->
+        <div id="orders" class="tab-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <h2><i class="fas fa-clipboard-list"></i> Orders Management</h2>
+                <button class="btn btn-primary" onclick="openOrderModal()">
+                    <i class="fas fa-plus"></i> New Order
+                </button>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Customer</th>
+                            <th>Product</th>
+                            <th>Qty</th>
+                            <th>Order Date</th>
+                            <th>Target Date</th>
+                            <th>Project</th>
+                            <th>Status</th>
+                            <th>Progress</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orders-table">
+                        <tr><td colspan="10" style="text-align: center;">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Projects Tab -->
+        <div id="projects" class="tab-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <h2><i class="fas fa-project-diagram"></i> Project Management</h2>
+                <button class="btn btn-primary" onclick="openProjectModal()">
+                    <i class="fas fa-plus"></i> New Project
+                </button>
+            </div>
+
+            <div id="projects-container">
+                <!-- Projects will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Tracking Tab -->
+        <div id="tracking" class="tab-content">
+            <h2><i class="fas fa-map-marker-alt"></i> Production Tracking</h2>
+
+            <div class="table-container">
+                <div style="padding: 20px;">
+                    <div class="form-group">
+                        <label><i class="fas fa-search"></i> Select Order</label>
+                        <select id="track-order-select" style="width: 100%; padding: 12px 16px; border: 1px solid var(--border-color); border-radius: 6px;" onchange="loadOrderTracking()">
+                            <option value="">-- Select Order --</option>
+                        </select>
+                    </div>
+
+                    <div id="order-tracking-info" style="display: none;">
+                        <div class="process-tracker">
+                            <h3>Production Process</h3>
+                            <div class="process-steps" id="process-steps">
+                                <!-- Process steps will be dynamically generated here -->
+                            </div>
+                        </div>
+
+                        <div class="quantity-tracking">
+                            <h3>Quantity Tracking</h3>
+                            <div id="quantity-tracking-table">
+                                <!-- Quantity tracking table will be generated here -->
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border-color);">
+                            <h3>Update Process Status</h3>
+                            <form id="tracking-form">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Process</label>
+                                        <select id="track-process-select" name="process" required>
+                                            <!-- Process options will be dynamically generated -->
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Quantity Completed</label>
+                                        <input type="number" id="quantity-completed" name="quantity_completed" min="0" value="0" required>
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Defect Quantity</label>
+                                        <input type="number" id="defect-quantity" name="defect_quantity" min="0" value="0">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>PIC Name</label>
+                                        <input type="text" name="pic_name" required>
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Start Time</label>
+                                        <input type="datetime-local" name="start_time" id="start-time" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>End Time</label>
+                                        <input type="datetime-local" name="end_time" id="end-time">
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Issues/Notes</label>
+                                    <textarea name="issues"></textarea>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> Update Tracking
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DSS Analysis Tab -->
+        <div id="dss" class="tab-content">
+            <h2><i class="fas fa-chart-line"></i> Decision Support System Analysis</h2>
+
+            <div class="dss-tabs">
+                <div class="dss-tab active" onclick="showDssTab('single')">Single Order Analysis</div>
+                <div class="dss-tab" onclick="showDssTab('project')">Project Analysis</div>
+                <div class="dss-tab" onclick="showDssTab('combined')">Combined Analysis</div>
+            </div>
+
+            <!-- Single Order Analysis -->
+            <div id="dss-single" class="dss-tab-content active">
+                <div class="table-container" style="margin-bottom: 24px;">
+                    <div style="padding: 20px;">
+                        <div class="form-group">
+                            <label><i class="fas fa-search"></i> Select Order for Analysis</label>
+                            <select id="dss-order-select" style="width: 100%; padding: 12px 16px; border: 1px solid var(--border-color); border-radius: 6px;" onchange="analyzeOrder()">
+                                <option value="">-- Select Order --</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="dss-results"></div>
+            </div>
+
+            <!-- Project Analysis -->
+            <div id="dss-project" class="dss-tab-content">
+                <div class="table-container" style="margin-bottom: 24px;">
+                    <div style="padding: 20px;">
+                        <div class="form-group">
+                            <label><i class="fas fa-search"></i> Select Project for Analysis</label>
+                            <select id="dss-project-select" style="width: 100%; padding: 12px 16px; border: 1px solid var(--border-color); border-radius: 6px;" onchange="analyzeProject()">
+                                <option value="">-- Select Project --</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="dss-project-results"></div>
+            </div>
+
+            <!-- Combined Analysis -->
+            <div id="dss-combined" class="dss-tab-content">
+                <div class="table-container" style="margin-bottom: 24px;">
+                    <div style="padding: 20px;">
+                        <h3><i class="fas fa-chart-bar"></i> Overall Production Analysis</h3>
+                        <p>Comprehensive analysis of all production orders and projects</p>
+                        <button class="btn btn-primary" onclick="analyzeAllOrders()">
+                            <i class="fas fa-sync-alt"></i> Refresh Analysis
+                        </button>
+                    </div>
+                </div>
+
+                <div id="combined-results"></div>
+            </div>
+        </div>
+
+        <!-- Efficiency Tab -->
+        <div id="efficiency" class="tab-content">
+            <h2><i class="fas fa-cogs"></i> Process Efficiency Settings</h2>
+            <p style="margin-bottom: 24px; color: #6c757d;">
+                Adjust efficiency targets for each production process. Efficiency is calculated based on time, quality, and output metrics.
+            </p>
+
+            <div class="efficiency-grid" id="efficiency-settings">
+                <!-- Efficiency settings will be loaded here -->
+            </div>
+
+            <div style="display: flex; gap: 12px; margin-top: 24px;">
+                <button class="btn btn-primary" onclick="saveEfficiencySettings()">
+                    <i class="fas fa-save"></i> Save Efficiency Settings
+                </button>
+                <button class="btn" onclick="resetEfficiencySettings()" style="background: var(--light-bg);">
+                    <i class="fas fa-undo"></i> Reset to Default
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-content">
+            <div class="footer-logo">
+                <div class="footer-logo-main">Java CONNECTION</div>
+                <div class="footer-logo-sub">EXPORT & WHOLESALE</div>
+            </div>
+            <div class="footer-info">
+                <p>Production Management System &copy; 2023</p>
+                <p>Optimizing your manufacturing process</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Order Modal -->
+    <div id="orderModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span id="modal-title">Create New Order</span>
+                <button class="modal-close" onclick="closeOrderModal()">&times;</button>
+            </div>
+            <form id="order-form">
+                <input type="hidden" id="order-id" name="order_id">
+                <div class="form-group">
+                    <label>Customer Name</label>
+                    <input type="text" name="customer_name" required>
+                </div>
+                <div class="form-group">
+                    <label>Product Description</label>
+                    <input type="text" name="product_description" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Quantity</label>
+                        <input type="number" name="quantity" id="order-quantity" required min="1">
+                    </div>
+                    <div class="form-group">
+                        <label>Order Date</label>
+                        <input type="date" name="order_date" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Target Date</label>
+                        <input type="date" name="target_date" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Project</label>
+                        <select id="order-project-select" name="project_id">
+                            <option value="">-- No Project --</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>PIC Name</label>
+                        <input type="text" name="pic_name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Priority</label>
+                        <select name="priority">
+                            <option value="low">Low</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="high">High</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Special Requirements</label>
+                    <div style="display: flex; gap: 16px; margin-top: 8px;">
+                        <label style="display: flex; align-items: center; gap: 6px;">
+                            <input type="checkbox" name="requires_accessories" id="requires-accessories">
+                            <span>Requires Accessories</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 6px;">
+                            <input type="checkbox" name="requires_welding" id="requires-welding">
+                            <span>Requires Welding</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea name="notes"></textarea>
+                </div>
+                <div style="display: flex; gap: 12px; margin-top: 24px;">
+                    <button type="submit" class="btn btn-primary" id="submit-button">Create Order</button>
+                    <button type="button" class="btn" onclick="closeOrderModal()" style="background: var(--light-bg);">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Project Modal -->
+    <div id="projectModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span id="project-modal-title">Create New Project</span>
+                <button class="modal-close" onclick="closeProjectModal()">&times;</button>
+            </div>
+            <form id="project-form">
+                <input type="hidden" id="project-id" name="project_id">
+                <div class="form-group">
+                    <label>Project Name</label>
+                    <input type="text" name="project_name" required>
+                </div>
+                <div class="form-group">
+                    <label>Project Description</label>
+                    <textarea name="project_description"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Start Date</label>
+                        <input type="date" name="start_date" required>
+                    </div>
+                    <div class="form-group">
+                        <label>End Date</label>
+                        <input type="date" name="end_date" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Client</label>
+                    <input type="text" name="client" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Project Manager</label>
+                        <input type="text" name="project_manager" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select name="status">
+                            <option value="planning">Planning</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="on_hold">On Hold</option>
+                            <option value="completed">Completed</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea name="notes"></textarea>
+                </div>
+                <div style="display: flex; gap: 12px; margin-top: 24px;">
+                    <button type="submit" class="btn btn-primary" id="project-submit-button">Create Project</button>
+                    <button type="button" class="btn" onclick="closeProjectModal()" style="background: var(--light-bg);">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Logo Modal -->
+    <div id="logoModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <span>Change Logo</span>
+                <button class="modal-close" onclick="closeLogoModal()">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <h3 style="margin-bottom: 16px;">Select Logo Style</h3>
+                
+                <div class="logo-options">
+                    <div class="logo-option" onclick="selectLogo('industry')">
+                        <i class="fas fa-industry"></i>
+                        <div class="logo-option-title">Industry</div>
+                        <div class="logo-option-desc">Manufacturing focus</div>
+                    </div>
+                    
+                    <div class="logo-option" onclick="selectLogo('box')">
+                        <i class="fas fa-box"></i>
+                        <div class="logo-option-title">Box</div>
+                        <div class="logo-option-desc">Shipping focus</div>
+                    </div>
+                    
+                    <div class="logo-option" onclick="selectLogo('cogs')">
+                        <i class="fas fa-cogs"></i>
+                        <div class="logo-option-title">Cogs</div>
+                        <div class="logo-option-desc">Production focus</div>
+                    </div>
+                    
+                    <div class="logo-option" onclick="selectLogo('warehouse')">
+                        <i class="fas fa-warehouse"></i>
+                        <div class="logo-option-title">Warehouse</div>
+                        <div class="logo-option-desc">Storage focus</div>
+                    </div>
+                    
+                    <div class="logo-option" onclick="selectLogo('tools')">
+                        <i class="fas fa-tools"></i>
+                        <div class="logo-option-title">Tools</div>
+                        <div class="logo-option-desc">Craftsmanship focus</div>
+                    </div>
+                    
+                    <div class="logo-option" onclick="selectLogo('shipping-fast')">
+                        <i class="fas fa-shipping-fast"></i>
+                        <div class="logo-option-title">Fast Shipping</div>
+                        <div class="logo-option-desc">Delivery focus</div>
+                    </div>
+                </div>
+                
+                <div class="custom-logo-upload">
+                    <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                    <div class="upload-text">Upload custom logo (PNG, JPG)</div>
+                    <input type="file" id="logo-upload" accept="image/*" style="display: none;">
+                    <button class="upload-btn" onclick="document.getElementById('logo-upload').click()">Choose File</button>
+                </div>
+                
+                <div style="margin-top: 20px; padding: 16px; background: var(--light-bg); border-radius: 8px;">
+                    <h4><i class="fas fa-info-circle"></i> Logo Information</h4>
+                    <p style="margin-top: 8px; font-size: 14px;">
+                        Select a logo style that best represents your business. You can also upload a custom logo image.
+                    </p>
+                </div>
+                
+                <div style="display: flex; gap: 12px; margin-top: 24px;">
+                    <button class="btn btn-primary" onclick="saveLogo()">
+                        <i class="fas fa-save"></i> Save Logo
+                    </button>
+                    <button class="btn" onclick="closeLogoModal()" style="background: var(--light-bg);">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div id="exportModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <span>Export Data</span>
+                <button class="modal-close" onclick="closeExportModal()">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <h3 style="margin-bottom: 16px;">Select Data to Export</h3>
+                
+                <div class="export-options">
+                    <div class="export-option" onclick="exportToExcel('orders')">
+                        <i class="fas fa-clipboard-list" style="font-size: 32px; color: var(--primary-color); margin-bottom: 8px;"></i>
+                        <h4>Orders Data</h4>
+                        <p>Export all order information</p>
+                    </div>
+                    
+                    <div class="export-option" onclick="exportToExcel('projects')">
+                        <i class="fas fa-project-diagram" style="font-size: 32px; color: var(--info-color); margin-bottom: 8px;"></i>
+                        <h4>Projects Data</h4>
+                        <p>Export all project information</p>
+                    </div>
+                    
+                    <div class="export-option" onclick="exportToExcel('tracking')">
+                        <i class="fas fa-map-marker-alt" style="font-size: 32px; color: var(--info-color); margin-bottom: 8px;"></i>
+                        <h4>Tracking Data</h4>
+                        <p>Export production tracking details</p>
+                    </div>
+                    
+                    <div class="export-option" onclick="exportToExcel('efficiency')">
+                        <i class="fas fa-chart-line" style="font-size: 32px; color: var(--success-color); margin-bottom: 8px;"></i>
+                        <h4>Efficiency Report</h4>
+                        <p>Export process efficiency analysis</p>
+                    </div>
+                    
+                    <div class="export-option" onclick="exportToExcel('all')">
+                        <i class="fas fa-file-excel" style="font-size: 32px; color: var(--accent-color); margin-bottom: 8px;"></i>
+                        <h4>Complete Report</h4>
+                        <p>Export all data in one file</p>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 20px; padding: 16px; background: var(--light-bg); border-radius: 8px;">
+                    <h4><i class="fas fa-info-circle"></i> Export Information</h4>
+                    <p style="margin-top: 8px; font-size: 14px;">
+                        Data will be exported in Excel format. The export includes current data from the production dashboard.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert Messages -->
+    <div id="alert-container" style="position: fixed; top: 80px; right: 24px; z-index: 999; max-width: 400px;"></div>
+
+    <script src="script.js"></script>
+    <script src="vercel.js"></script>
+</body>
+</html>
