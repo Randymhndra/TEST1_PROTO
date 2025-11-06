@@ -1091,7 +1091,7 @@ function showTab(tabName) {
     event.target.classList.add('active');
 
     if (tabName === 'orders') {
-        loadOrders();
+        renderOrders(orders);
     } else if (tabName === 'projects') {
         loadProjects();
     } else if (tabName === 'tracking') {
@@ -1228,10 +1228,10 @@ function detectBottleneck() {
 }
 
 // Load Orders
-async function loadOrders() {
+function renderOrders(ordersToRender) {
     try {
         let html = '';
-        orders.forEach(order => {
+        ordersToRender.forEach(order => {
             const project = projects.find(p => p.project_id === order.project_id);
             const statusColor = order.current_status === 'completed' ? 'success' : 
                                 order.current_status === 'in_progress' ? 'info' : 
@@ -2938,7 +2938,7 @@ document.getElementById('order-form').addEventListener('submit', async (e) => {
         }
 
         closeOrderModal();
-        loadOrders();
+        renderOrders(orders);
         loadDashboard(); // Refresh dashboard to update risk metrics
 
     } catch (error) {
@@ -2958,7 +2958,7 @@ async function deleteOrder(orderId) {
         try {
             orders = orders.filter(o => o.order_id !== orderId);
             showAlert('Order deleted successfully', 'success');
-            loadOrders();
+            renderOrders(orders);
             loadDashboard();
         } catch (error) {
             console.error('Error:', error);
