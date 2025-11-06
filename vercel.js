@@ -1,18 +1,13 @@
 document.addEventListener("DOMContentLoaded", () => {
-  // Only load orders after script.js has fully loaded
-  if (typeof renderOrders !== "function") {
-    console.warn("⚠️ renderOrders() not yet loaded, retrying...");
-    const interval = setInterval(() => {
-      if (typeof renderOrders === "function") {
-        clearInterval(interval);
-        console.log("✅ renderOrders() available, loading orders...");
-        loadOrders();
-      }
-    }, 200);
-  } else {
-    console.log("✅ renderOrders() available, loading orders...");
-    loadOrders();
-  }
+  console.log("🌐 DOM fully loaded — initializing order system...");
+  
+  const waitForRenderer = setInterval(() => {
+    if (typeof renderOrders === "function") {
+      clearInterval(waitForRenderer);
+      console.log("✅ renderOrders() ready — loading orders...");
+      loadOrders();
+    }
+  }, 400);
 });
 
 // Fetch orders from MongoDB
@@ -46,11 +41,15 @@ async function loadOrders() {
 
     console.log('✅ Orders loaded:', window.orders);
 
-    if (typeof renderOrders === 'function') {
-      renderOrders(window.orders);
-    } else {
-      console.error('renderOrders() not found');
-    }
+    const renderCheck = setInterval(() => {
+      if (typeof renderOrders === 'function') {
+        clearInterval(renderCheck);
+        console.log('🎨 Rendering orders...');
+        renderOrders(window.orders);
+      } else {
+        console.warn('⏳ Waiting for renderOrders() before rendering...');
+      }
+    }, 300);
 
   } catch (err) {
     console.error('loadOrders error:', err);
