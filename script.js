@@ -692,22 +692,18 @@ function exportToExcel(type) {
                 break;
         }
         
-        // Create workbook and export
         const wb = XLSX.utils.book_new();
         
-        if (Array.isArray(data)) {
-            // Multiple sheets
+        if (type === 'all') {
             data.forEach(sheet => {
                 const ws = XLSX.utils.json_to_sheet(sheet.data);
                 XLSX.utils.book_append_sheet(wb, ws, sheet.name);
             });
         } else {
-            // Single sheet
             const ws = XLSX.utils.json_to_sheet(data);
             XLSX.utils.book_append_sheet(wb, ws, 'Data');
         }
-        
-        // Export the file
+
         XLSX.writeFile(wb, filename);
         showAlert(`Data exported successfully as ${filename}`, 'success');
         closeExportModal();
