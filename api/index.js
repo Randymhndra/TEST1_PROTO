@@ -131,3 +131,30 @@ export default async function handler(req, res) {
     res.status(500).json({ error: error.message });
   }
 }
+
+(async () => {
+  await connectToDB();
+  const count = await Order.countDocuments();
+  if (count === 0) {
+    await Order.create({
+      order_id: "ORD-003",
+      customer_name: "PT Nusantara Mebel",
+      product_description: "Lemari Kayu Jati Ukir",
+      quantity: 15,
+      order_date: "2025-11-06",
+      target_date: "2025-11-20",
+      project_id: "",
+      pic_name: "Andi Saputra",
+      priority: "medium",
+      requires_accessories: true,
+      requires_welding: false,
+      notes: "Gunakan finishing warna natural dengan lapisan pelindung UV.",
+      current_status: "pending",
+      progress: 0,
+      risk_level: "LOW",
+      risk_score: 10,
+      tracking: []
+    });
+    console.log("✅ Seeded initial order data");
+  }
+})();
