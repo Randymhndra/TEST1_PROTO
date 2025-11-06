@@ -134,6 +134,30 @@ function loadEfficiencySettings() {
     return saved ? JSON.parse(saved) : {...defaultEfficiencySettings};
 }
 
+// Save order to KV
+async function saveOrdersToKV() {
+    try {
+        const response = await fetch('/api?type=orders', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orders)
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            console.error('❌ Failed to save orders:', errText);
+            showAlert('Could not sync orders with server.', 'warning');
+        } else {
+            console.log('✅ Orders saved to KV');
+        }
+    } catch (error) {
+        console.error('❌ Failed to save orders to KV:', error);
+        showAlert('Could not sync orders with server.', 'warning');
+    }
+}
+
+// Save efficiency settings
+
 async function saveEfficiencySettings() {
     const settings = {};
     
@@ -631,9 +655,6 @@ function loadProjects() {
     
     document.getElementById('projects-container').innerHTML = html;
 }
-
-// Waiting for save KV
-await saveOrdersToKV();
 
 // Order KV PUT
 async function saveOrdersToKV() {
