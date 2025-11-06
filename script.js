@@ -2868,82 +2868,43 @@ function closeOrderModal() {
 // Handle form submission for create and update
 document.getElementById('order-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData);
     const orderId = document.getElementById('order-id').value;
 
+    // Add the extra boolean data and types
+    data.requires_accessories = document.getElementById('requires-accessories').checked;
+    data.requires_welding = document.getElementById('requires-welding').checked;
+    data.quantity = parseInt(data.quantity);
+    if (orderId) {
+        data.order_id = orderId; // Pass the ID if we are editing
+    }
+
+    // Disable submit button
+    const submitButton = document.getElementById('submit-button');
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+
     try {
-        if (orderId) {
-            // === Update existing order ===
-            const index = orders.findIndex(o => o.order_id === orderId);
-            if (index !== -1) {
-                orders[index] = {
-                    ...orders[index],
-                    customer_name: data.customer_name,
-                    product_description: data.product_description,
-                    quantity: parseInt(data.quantity),
-                    order_date: data.order_date,
-                    target_date: data.target_date,
-                    project_id: data.project_id || null,
-                    pic_name: data.pic_name,
-                    priority: data.priority,
-                    notes: data.notes,
-                    requires_accessories: document.getElementById('requires-accessories').checked,
-                    requires_welding: document.getElementById('requires-welding').checked
-                };
-                
-                // Update risk assessment
-                const riskAssessment = calculateRiskAssessment(orders[index]);
-                orders[index].risk_level = riskAssessment.risk_level;
-                orders[index].risk_score = riskAssessment.risk_score;
-
-                showAlert('Order updated successfully', 'success');
-            }
-        } else {
-            // === Create new order ===
-            const newOrderId = 'ORD-' + String(orders.length + 1).padStart(3, '0');
-            const newOrder = {
-                order_id: newOrderId,
-                customer_name: data.customer_name,
-                product_description: data.product_description,
-                quantity: parseInt(data.quantity),
-                order_date: data.order_date,
-                target_date: data.target_date,
-                project_id: data.project_id || null,
-                pic_name: data.pic_name,
-                current_status: 'pending',
-                priority: data.priority,
-                notes: data.notes,
-                requires_accessories: document.getElementById('requires-accessories').checked,
-                requires_welding: document.getElementById('requires-welding').checked,
-                progress: 0,
-                risk_level: 'LOW',
-                risk_score: 10,
-                tracking: productionProcesses.map(process => ({
-                    process: process.id,
-                    status: 'pending',
-                    quantity_completed: 0,
-                    defect_quantity: 0,
-                    start_time: null,
-                    end_time: null,
-                    pic_name: '',
-                    issues: '',
-                    last_updated: null
-                }))
-            };
-            orders.push(newOrder);
-
-            showAlert('Order created successfully', 'success');
+        // Call the saveOrder function from vercel.js
+        if (typeof saveOrder !== 'function') {
+            throw new Error('saveOrder function is not defined. Check vercel.js');
         }
-
+        
+        await saveOrder(data); // This function now handles saving AND reloading
+        
         closeOrderModal();
-        renderOrders(orders);
-        loadDashboard(); // Refresh dashboard to update risk metrics
-
+        // No need to call renderOrders() or loadDashboard() here,
+        // because loadAndInitializeApp() (called by saveOrder) already did it.
+        
     } catch (error) {
-        console.error('Error:', error);
-        showAlert(`Error ${orderId ? 'updating' : 'creating'} order`, 'error');
+        console.error('Error in form submission:', error);
+        showAlert(`Error saving order: ${error.message}`, 'error');
+    } finally {
+        // Re-enable submit button
+        submitButton.disabled = false;
+        const buttonText = orderId ? '<i class="fas fa-save"></i> Update Order' : '<i class="fas fa-plus"></i> Create Order';
+        submitButton.innerHTML = buttonText;
     }
 });
 
