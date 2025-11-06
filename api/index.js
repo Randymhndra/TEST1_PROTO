@@ -42,6 +42,10 @@ export default async function handler(req, res) {
     "GET,POST,PUT,DELETE,OPTIONS"
   );
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader(
+    'Cache-Control',
+    'no-cache, no-store, max-age=0, must-revalidate'
+  );
   if (method === "OPTIONS") return res.status(200).end();
 
   const type = query.type;
