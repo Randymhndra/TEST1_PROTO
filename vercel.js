@@ -94,11 +94,6 @@ async function loadAndInitializeApp() {
 }
 
 
-// === API FUNCTIONS ===
-
-/**
- * Saves (creates or updates) an order to the database via API.
- */
 async function saveOrder(orderData) {
   try {
     console.log("🟡 Sending order payload to /api?type=orders:", orderData);
@@ -178,11 +173,15 @@ async function saveProjectAPI(projectData) {
   }
 }
 
+// In vercel.js
+
 // RIGHT
 async function deleteProjectAPI(projectId) {
   try {
     console.log(`🟡 Deleting project ${projectId}...`);
-    const res = await fetch('/api?type=projects', { // <-- Use query param
+    
+    // This is the correct URL with the query parameter
+    const res = await fetch('/api?type=projects', { 
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ project_id: projectId }),
