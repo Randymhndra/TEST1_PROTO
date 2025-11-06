@@ -21,9 +21,22 @@ async function handleOrders(req, res, method) {
   }
 
   if (method === 'PUT') {
-    const body = await getBody(req);
-    await setToKV('orders', body);
-    return res.status(200).json({ success: true, message: 'Orders saved' });
+    try {
+      const chunks = [];
+      for await (const chunk of req) chunks.push(chunk);
+      const raw = Buffer.concat(chunks).toString();
+      const body = JSON.parse(raw);
+
+      if (!Array.isArray(body)) {
+        return res.status(400).json({ success: false, error: 'Invalid order format' });
+      }
+
+      await setToKV('orders', body);
+      return res.status(200).json({ success: true, message: 'Orders updated successfully' });
+    } catch (err) {
+      console.error('Error updating orders:', err);
+      return res.status(500).json({ success: false, error: 'Failed to update orders' });
+    }
   }
 
   if (method === 'DELETE') {
@@ -31,7 +44,7 @@ async function handleOrders(req, res, method) {
     return res.status(200).json({ success: true, message: 'Orders deleted' });
   }
 
-  return res.status(405).json({ error: 'Method not allowed' });
+  return res.status(405).json({ success: false, error: 'Method not allowed' });
 }
 
 // === PROJECTS ===
@@ -309,9 +322,6 @@ async function initializeData() {
 // Orders handler
 async function handleOrders(req, res, method, id) {
   try {
-    // Initialize data if empty
-    await initializeData();
-    
     let orders = await getFromKV('orders') || [];
     
     switch (method) {
@@ -400,8 +410,6 @@ async function handleOrders(req, res, method, id) {
 // Projects handler
 async function handleProjects(req, res, method, id) {
   try {
-    await initializeData();
-    
     let projects = await getFromKV('projects') || [];
     
     switch (method) {
@@ -460,8 +468,6 @@ async function handleProjects(req, res, method, id) {
 // Settings handler
 async function handleSettings(req, res, method, id) {
   try {
-    await initializeData();
-    
     let settings = await getFromKV('settings') || {
       logo: { icon: 'industry', customUrl: null },
       efficiency: {},
@@ -552,9 +558,6 @@ async function handleExport(req, res, method) {
     if (method !== 'GET') {
       return res.status(405).json({ error: 'Method not allowed' });
     }
-    
-    await initializeData();
-    
     const orders = await getFromKV('orders') || [];
     const projects = await getFromKV('projects') || [];
     const settings = await getFromKV('settings') || {};
