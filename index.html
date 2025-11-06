@@ -621,12 +621,26 @@
 
     <script>
     document.addEventListener("DOMContentLoaded", () => {
-    if (typeof setupRealtimeSync === "function") {
-        console.log("🟢 Initializing Vercel KV sync...");
-        setupRealtimeSync();
-    } else {
-        console.error("❌ setupRealtimeSync() not found. Check vercel.js import order.");
+    const orderForm = document.getElementById("order-form");
+    if (!orderForm) {
+        console.error("❌ order-form not found in DOM");
+        return;
     }
+
+    orderForm.addEventListener("submit", async (e) => {
+        e.preventDefault(); // Stop form reload
+        console.log("🟢 Order form submitted");
+
+        const formData = new FormData(orderForm);
+        const orderData = Object.fromEntries(formData.entries());
+
+        // Normalize checkboxes manually
+        orderData.requires_accessories = document.getElementById("requires-accessories").checked;
+        orderData.requires_welding = document.getElementById("requires-welding").checked;
+
+        console.log("🟡 Sending order payload:", orderData);
+        await saveOrder(orderData);
+    });
     });
     </script>
     <script src="script.js" defer></script>
