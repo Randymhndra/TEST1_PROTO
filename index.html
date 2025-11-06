@@ -617,6 +617,14 @@
         </div>
     </div>
 
+    <script>
+    document.addEventListener("DOMContentLoaded", () => {
+        if (typeof setupRealtimeSync === "function") {
+        setupRealtimeSync(); // Start pulling data from Vercel KV
+        }
+    });
+    </script>
+
     <!-- Alert Messages -->
     <div id="alert-container" style="position: fixed; top: 80px; right: 24px; z-index: 999; max-width: 400px;"></div>
 </body>
