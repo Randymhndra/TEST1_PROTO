@@ -3114,15 +3114,9 @@ loadDashboard();
 loadSavedLogo();
 
 // === AUTO LOAD DEFAULT TAB ON PAGE LOAD ===
-window.addEventListener("DOMContentLoaded", () => {
-  // You can change 'orders' to 'dashboard' if you want that as default
-  console.log("🌐 Page loaded — auto-selecting Orders tab...");
-  const defaultTab = document.querySelector('[onclick*="showTab(\'orders")"]');
-  if (defaultTab) {
-    // Simulate a click so event styling & logic both run
-    defaultTab.click();
-  } else {
-    // Fallback — manually call if button not found
-    showTab('orders');
-  }
+window.addEventListener("DOMContentLoaded", async () => {
+  console.log("🌐 Page loaded — preloading Orders and Projects...");
+  if (typeof loadOrders === "function") await loadOrders();
+  if (typeof loadProjects === "function") await loadProjects();
+  showTab('orders'); // default view
 });
