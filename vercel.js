@@ -35,21 +35,30 @@ async function syncDataFromServer() {
       const ordersData = await ordersRes.json();
       const projectsData = await projectsRes.json();
 
-      if (ordersData.success && projectsData.success) {
-        // Update data
-        orders = ordersData.data || [];
-        projects = projectsData.data || [];
+      // Normalize responses: accept either { success: true, data: [...] } OR direct array/object
+      const serverOrders = (ordersData && ordersData.success && Array.isArray(ordersData.data))
+        ? ordersData.data
+        : (Array.isArray(ordersData) ? ordersData : (ordersData.data || []));
 
-        // Trigger UI update jika data berubah
-        if (!isFirstLoad) {
-          updateUI();
-        }
+      const serverProjects = (projectsData && projectsData.success && Array.isArray(projectsData.data))
+        ? projectsData.data
+        : (Array.isArray(projectsData) ? projectsData : (projectsData.data || []));
 
-        isFirstLoad = false;
-        lastSyncTime = Date.now();
+      // Update data
+      orders = serverOrders || [];
+      projects = serverProjects || [];
 
-        console.log('✅ Data synced from server:', { orders: orders.length, projects: projects.length });
+      // Trigger UI update jika data berubah
+      if (!isFirstLoad) {
+        updateUI();
       }
+
+      isFirstLoad = false;
+      lastSyncTime = Date.now();
+
+      console.log('✅ Data synced from server:', { orders: orders.length, projects: projects.length });
+    } else {
+      console.warn('Sync fetch returned non-ok response(s)', ordersRes.status, projectsRes.status);
     }
   } catch (error) {
     console.error('❌ Sync error:', error);

@@ -1,6 +1,9 @@
 // api/index.js
 import { kv } from '@vercel/kv';
 
+// ✅ Initialize data once when the serverless function starts
+initializeData();
+
 // Parse JSON body safely
 async function getBody(req) {
   const chunks = [];

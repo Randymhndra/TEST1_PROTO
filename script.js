@@ -656,21 +656,6 @@ function loadProjects() {
     document.getElementById('projects-container').innerHTML = html;
 }
 
-// Order KV PUT
-async function saveOrdersToKV() {
-    try {
-        await fetch('/api?type=orders', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(orders)
-        });
-        console.log('✅ Orders saved to KV');
-    } catch (error) {
-        console.error('❌ Failed to save orders to KV:', error);
-        showAlert('Could not sync orders with server.', 'warning');
-    }
-}
-
 // Update project select options in forms
 function updateProjectSelects() {
     // Update order form project select
@@ -2956,7 +2941,7 @@ document.getElementById('order-form').addEventListener('submit', async (e) => {
 
     try {
         if (orderId) {
-            // Update existing order
+            // === Update existing order ===
             const index = orders.findIndex(o => o.order_id === orderId);
             if (index !== -1) {
                 orders[index] = {
@@ -2978,10 +2963,14 @@ document.getElementById('order-form').addEventListener('submit', async (e) => {
                 const riskAssessment = calculateRiskAssessment(orders[index]);
                 orders[index].risk_level = riskAssessment.risk_level;
                 orders[index].risk_score = riskAssessment.risk_score;
+
+                // ✅ Persist update to KV
+                await saveOrdersToKV();
+
+                showAlert('Order updated successfully', 'success');
             }
-            showAlert('Order updated successfully', 'success');
         } else {
-            // Create new order
+            // === Create new order ===
             const newOrderId = 'ORD-' + String(orders.length + 1).padStart(3, '0');
             const newOrder = {
                 order_id: newOrderId,
@@ -2998,8 +2987,8 @@ document.getElementById('order-form').addEventListener('submit', async (e) => {
                 requires_accessories: document.getElementById('requires-accessories').checked,
                 requires_welding: document.getElementById('requires-welding').checked,
                 progress: 0,
-                risk_level: 'LOW', // New orders start with LOW risk
-                risk_score: 10,    // New orders start with low risk score
+                risk_level: 'LOW',
+                risk_score: 10,
                 tracking: productionProcesses.map(process => ({
                     process: process.id,
                     status: 'pending',
@@ -3013,13 +3002,17 @@ document.getElementById('order-form').addEventListener('submit', async (e) => {
                 }))
             };
             orders.push(newOrder);
+
+            // ✅ Persist creation to KV
             await saveOrdersToKV();
+
             showAlert('Order created successfully', 'success');
         }
-        
+
         closeOrderModal();
         loadOrders();
         loadDashboard(); // Refresh dashboard to update risk metrics
+
     } catch (error) {
         console.error('Error:', error);
         showAlert(`Error ${orderId ? 'updating' : 'creating'} order`, 'error');
