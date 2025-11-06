@@ -3112,3 +3112,14 @@ function showAlert(message, type = 'info') {
 // Initialize
 loadDashboard();
 loadSavedLogo();
+
+// ✅ Safe wrapper for optional realtime sync
+// Prevents console errors if setupRealtimeSync() is missing
+window.addEventListener("DOMContentLoaded", () => {
+  if (typeof setupRealtimeSync === "function") {
+    console.log("🔄 Realtime sync active");
+    setupRealtimeSync();
+  } else {
+    console.warn("❌ setupRealtimeSync() not found. Realtime sync disabled.");
+  }
+});
