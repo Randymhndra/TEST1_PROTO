@@ -1,13 +1,18 @@
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   console.log("🌐 DOM fully loaded — initializing order system...");
-  
-  const waitForRenderer = setInterval(() => {
-    if (typeof renderOrders === "function") {
-      clearInterval(waitForRenderer);
-      console.log("✅ renderOrders() ready — loading orders...");
-      loadOrders();
-    }
-  }, 400);
+  if (typeof loadOrders === "function") {
+    console.log("✅ Calling loadOrders() at startup...");
+    await loadOrders();
+  } else {
+    console.warn("⚠️ loadOrders() not defined yet, will retry...");
+    const retry = setInterval(() => {
+      if (typeof loadOrders === "function") {
+        clearInterval(retry);
+        console.log("✅ loadOrders() ready, executing...");
+        loadOrders();
+      }
+    }, 300);
+  }
 });
 
 // Fetch orders from MongoDB
