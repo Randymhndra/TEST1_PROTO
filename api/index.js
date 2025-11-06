@@ -1,692 +1,348 @@
 // api/index.js
-import { kv } from '@vercel/kv';
+import { MongoClient } from "mongodb";
+import * as XLSX from "xlsx";
 
-// ✅ Initialize data once when the serverless function starts
+const uri = process.env.MONGODB_URI;
+const client = new MongoClient(uri);
+const dbName = "javaconnection";
+
+// Initialize database once at cold start
 initializeData();
 
-// Parse JSON body safely
+// === BODY PARSER ===
 async function getBody(req) {
   const chunks = [];
   for await (const chunk of req) chunks.push(chunk);
-  const raw = Buffer.concat(chunks).toString();
   try {
-    return JSON.parse(raw);
+    return JSON.parse(Buffer.concat(chunks).toString());
   } catch {
     return null;
   }
 }
 
-// === ORDERS ===
-async function handleOrders(req, res, method) {
-  if (method === 'GET') {
-    const data = await getFromKV('orders');
-    return res.status(200).json({ success: true, data });
-  }
+// === MAIN HANDLER ===
+export default async function handler(req, res) {
+  const { type, id } = req.query;
+  const method = req.method;
 
-  if (method === 'PUT') {
-    try {
-      const chunks = [];
-      for await (const chunk of req) chunks.push(chunk);
-      const raw = Buffer.concat(chunks).toString();
-      const body = JSON.parse(raw);
+  try {
+    await client.connect();
+    const db = client.db(dbName);
 
-      if (!Array.isArray(body)) {
-        return res.status(400).json({ success: false, error: 'Invalid order format' });
-      }
-
-      await setToKV('orders', body);
-      return res.status(200).json({ success: true, message: 'Orders updated successfully' });
-    } catch (err) {
-      console.error('Error updating orders:', err);
-      return res.status(500).json({ success: false, error: 'Failed to update orders' });
+    switch (type) {
+      case "orders":
+        return await handleOrders(db, req, res, method, id);
+      case "projects":
+        return await handleProjects(db, req, res, method, id);
+      case "settings":
+        return await handleSettings(db, req, res, method);
+      case "tracking":
+        return await handleTracking(db, req, res, method, id);
+      case "export":
+        return await handleExport(db, req, res, method);
+      default:
+        return res.status(400).json({ error: "Invalid API type" });
     }
-  }
-
-  if (method === 'DELETE') {
-    await deleteFromKV('orders');
-    return res.status(200).json({ success: true, message: 'Orders deleted' });
-  }
-
-  return res.status(405).json({ success: false, error: 'Method not allowed' });
-}
-
-// === PROJECTS ===
-async function handleProjects(req, res, method) {
-  if (method === 'GET') {
-    const data = await getFromKV('projects');
-    return res.status(200).json({ success: true, data });
-  }
-
-  if (method === 'PUT') {
-    const body = await getBody(req);
-    await setToKV('projects', body);
-    return res.status(200).json({ success: true, message: 'Projects saved' });
-  }
-
-  if (method === 'DELETE') {
-    await deleteFromKV('projects');
-    return res.status(200).json({ success: true, message: 'Projects deleted' });
-  }
-
-  return res.status(405).json({ error: 'Method not allowed' });
-}
-
-// === SETTINGS ===
-async function handleSettings(req, res, method) {
-  if (method === 'GET') {
-    const data = await getFromKV('settings');
-    return res.status(200).json({ success: true, data });
-  }
-
-  if (method === 'PUT') {
-    const body = await getBody(req);
-    const existing = (await getFromKV('settings')) || {};
-    const merged = { ...existing, ...body }; // merge new settings with old
-    await setToKV('settings', merged);
-    return res.status(200).json({ success: true, message: 'Settings updated' });
-  }
-
-  if (method === 'DELETE') {
-    await deleteFromKV('settings');
-    return res.status(200).json({ success: true, message: 'Settings deleted' });
-  }
-
-  return res.status(405).json({ error: 'Method not allowed' });
-}
-
-// === TRACKING (optional, same pattern) ===
-async function handleTracking(req, res, method) {
-  if (method === 'GET') {
-    const data = await getFromKV('tracking');
-    return res.status(200).json({ success: true, data });
-  }
-
-  if (method === 'PUT') {
-    const body = await getBody(req);
-    await setToKV('tracking', body);
-    return res.status(200).json({ success: true, message: 'Tracking saved' });
-  }
-
-  if (method === 'DELETE') {
-    await deleteFromKV('tracking');
-    return res.status(200).json({ success: true, message: 'Tracking deleted' });
-  }
-
-  return res.status(405).json({ error: 'Method not allowed' });
-}
-
-// Helper functions for KV storage
-async function getFromKV(key) {
-  try {
-    const data = await kv.get(key);
-    return data ? JSON.parse(data) : null;
   } catch (error) {
-    console.error('Error getting from KV:', error);
-    return null;
+    console.error("❌ Database error:", error);
+    return res.status(500).json({ error: "Database connection failed" });
+  } finally {
+    await client.close();
   }
 }
 
-async function setToKV(key, value) {
-  try {
-    await kv.set(key, JSON.stringify(value));
-    return true;
-  } catch (error) {
-    console.error('Error setting to KV:', error);
-    return false;
+// === ORDERS HANDLER ===
+async function handleOrders(db, req, res, method, id) {
+  const collection = db.collection("orders");
+  switch (method) {
+    case "GET":
+      if (id) {
+        const order = await collection.findOne({ order_id: id });
+        if (!order) return res.status(404).json({ error: "Order not found" });
+        return res.status(200).json(order);
+      }
+      const allOrders = await collection.find({}).toArray();
+      return res.status(200).json(allOrders);
+
+    case "POST":
+      const newOrder = await getBody(req);
+      newOrder.order_id = `ORD-${Date.now()}`;
+      newOrder.created_at = new Date().toISOString();
+      newOrder.updated_at = new Date().toISOString();
+      newOrder.current_status = "pending";
+      newOrder.progress = 0;
+      newOrder.risk_level = "LOW";
+      newOrder.risk_score = 10;
+      newOrder.tracking = initializeTracking(newOrder);
+
+      await collection.insertOne(newOrder);
+      return res.status(201).json(newOrder);
+
+    case "PUT":
+      if (!id) return res.status(400).json({ error: "Order ID required" });
+      const body = await getBody(req);
+      await collection.updateOne({ order_id: id }, { $set: { ...body, updated_at: new Date().toISOString() } });
+      const updated = await collection.findOne({ order_id: id });
+      return res.status(200).json(updated);
+
+    case "DELETE":
+      if (!id) return res.status(400).json({ error: "Order ID required" });
+      await collection.deleteOne({ order_id: id });
+      return res.status(200).json({ message: "Order deleted successfully" });
+
+    default:
+      return res.status(405).json({ error: "Method not allowed" });
   }
 }
 
-async function deleteFromKV(key) {
-  try {
-    await kv.del(key);
-    return true;
-  } catch (error) {
-    console.error('Error deleting from KV:', error);
-    return false;
+// === PROJECTS HANDLER ===
+async function handleProjects(db, req, res, method, id) {
+  const collection = db.collection("projects");
+  switch (method) {
+    case "GET":
+      if (id) {
+        const project = await collection.findOne({ project_id: id });
+        if (!project) return res.status(404).json({ error: "Project not found" });
+        return res.status(200).json(project);
+      }
+      const allProjects = await collection.find({}).toArray();
+      return res.status(200).json(allProjects);
+
+    case "POST":
+      const newProject = await getBody(req);
+      newProject.project_id = `PRJ-${Date.now()}`;
+      newProject.created_at = new Date().toISOString();
+      newProject.updated_at = new Date().toISOString();
+      await collection.insertOne(newProject);
+      return res.status(201).json(newProject);
+
+    case "PUT":
+      if (!id) return res.status(400).json({ error: "Project ID required" });
+      const body = await getBody(req);
+      await collection.updateOne({ project_id: id }, { $set: { ...body, updated_at: new Date().toISOString() } });
+      const updated = await collection.findOne({ project_id: id });
+      return res.status(200).json(updated);
+
+    case "DELETE":
+      if (!id) return res.status(400).json({ error: "Project ID required" });
+      await collection.deleteOne({ project_id: id });
+      return res.status(200).json({ message: "Project deleted successfully" });
+
+    default:
+      return res.status(405).json({ error: "Method not allowed" });
   }
 }
 
-// Initialize default data
+// === SETTINGS HANDLER ===
+async function handleSettings(db, req, res, method) {
+  const collection = db.collection("settings");
+  switch (method) {
+    case "GET":
+      const settings = await collection.findOne({});
+      return res.status(200).json(settings || {});
+
+    case "PUT":
+      const body = await getBody(req);
+      await collection.updateOne({}, { $set: { ...body, updated_at: new Date().toISOString() } }, { upsert: true });
+      const updated = await collection.findOne({});
+      return res.status(200).json(updated);
+
+    default:
+      return res.status(405).json({ error: "Method not allowed" });
+  }
+}
+
+// === TRACKING HANDLER ===
+async function handleTracking(db, req, res, method, id) {
+  if (method !== "PUT") return res.status(405).json({ error: "Method not allowed" });
+  if (!id) return res.status(400).json({ error: "Order ID required" });
+
+  const { processId, trackingData } = await getBody(req);
+  if (!processId || !trackingData) return res.status(400).json({ error: "Missing processId or trackingData" });
+
+  const collection = db.collection("orders");
+  const order = await collection.findOne({ order_id: id });
+  if (!order) return res.status(404).json({ error: "Order not found" });
+
+  const trackIndex = order.tracking.findIndex(t => t.process === processId);
+  if (trackIndex === -1) return res.status(404).json({ error: "Process not found" });
+
+  order.tracking[trackIndex] = { ...order.tracking[trackIndex], ...trackingData, last_updated: new Date().toISOString() };
+  updateOrderStatus(order);
+
+  await collection.updateOne({ order_id: id }, { $set: order });
+  return res.status(200).json(order);
+}
+
+// === EXPORT HANDLER ===
+async function handleExport(db, req, res, method) {
+  if (method !== "GET") return res.status(405).json({ error: "Method not allowed" });
+
+  const { target } = req.query;
+  const orders = await db.collection("orders").find({}).toArray();
+  const projects = await db.collection("projects").find({}).toArray();
+  const tracking = await db.collection("tracking").find({}).toArray();
+  const settings = await db.collection("settings").findOne({});
+
+  const wb = XLSX.utils.book_new();
+  const addSheet = (name, data) => XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), name);
+
+  if (target === "orders") addSheet("Orders", orders);
+  else if (target === "projects") addSheet("Projects", projects);
+  else if (target === "tracking") addSheet("Tracking", tracking);
+  else if (target === "efficiency") {
+    const eff = settings?.efficiency
+      ? Object.entries(settings.efficiency).map(([k, v]) => ({
+          process_id: k,
+          target_time: v.targetTime,
+          target_quality: v.targetQuality,
+          target_output: v.targetOutput,
+        }))
+      : [];
+    addSheet("Efficiency", eff);
+  } else if (target === "complete") {
+    addSheet("Orders", orders);
+    addSheet("Projects", projects);
+    addSheet("Tracking", tracking);
+    const eff = settings?.efficiency
+      ? Object.entries(settings.efficiency).map(([k, v]) => ({
+          process_id: k,
+          target_time: v.targetTime,
+          target_quality: v.targetQuality,
+          target_output: v.targetOutput,
+        }))
+      : [];
+    addSheet("Efficiency", eff);
+  } else {
+    return res.status(400).json({ error: "Invalid export target" });
+  }
+
+  const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+  res.setHeader("Content-Disposition", `attachment; filename=${target}-report.xlsx`);
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  return res.status(200).send(buffer);
+}
+
+// === DEFAULT DATA INITIALIZATION ===
 async function initializeData() {
   try {
-    // Check if data exists
-    const orders = await getFromKV('orders');
-    const projects = await getFromKV('projects');
-    const settings = await getFromKV('settings');
+    await client.connect();
+    const db = client.db(dbName);
+    const orders = await db.collection("orders").countDocuments();
+    const projects = await db.collection("projects").countDocuments();
+    const settings = await db.collection("settings").countDocuments();
 
-    // Initialize orders if empty
-    if (!orders || orders.length === 0) {
-      const defaultOrders = [
-        {
-          order_id: 'ORD-001',
-          customer_name: 'PT Maju Jaya',
-          product_description: 'Meja Kerja Kayu',
-          quantity: 5,
-          order_date: '2024-01-01',
-          target_date: '2024-01-21',
-          pic_name: 'Budi Santoso',
-          current_status: 'in_progress',
-          notes: 'Prioritas tinggi',
-          requires_accessories: true,
-          requires_welding: false,
-          progress: 40,
-          risk_level: 'MEDIUM',
-          risk_score: 60,
-          project_id: 'PRJ-001',
-          priority: 'high',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          tracking: [
-            { 
-              process: 'warehouse_in', 
-              status: 'completed', 
-              quantity_completed: 5, 
-              defect_quantity: 0, 
-              start_time: '2024-01-02T08:00', 
-              end_time: '2024-01-02T10:00', 
-              pic_name: 'Budi', 
-              last_updated: '2024-01-02T10:00' 
-            },
-            { 
-              process: 'sanding', 
-              status: 'completed', 
-              quantity_completed: 5, 
-              defect_quantity: 1, 
-              start_time: '2024-01-02T10:30', 
-              end_time: '2024-01-02T14:00', 
-              pic_name: 'Ahmad', 
-              last_updated: '2024-01-02T14:00' 
-            },
-            { 
-              process: 'assembly', 
-              status: 'in_progress', 
-              quantity_completed: 3, 
-              defect_quantity: 0, 
-              start_time: '2024-01-03T08:00', 
-              end_time: null, 
-              pic_name: 'Sari', 
-              last_updated: '2024-01-05T16:30' 
-            }
-          ]
-        },
-        {
-          order_id: 'ORD-002',
-          customer_name: 'CV Sejahtera',
-          product_description: 'Kursi Kantor',
-          quantity: 10,
-          order_date: '2024-01-05',
-          target_date: '2024-01-25',
-          pic_name: 'Siti Rahayu',
-          current_status: 'in_progress',
-          notes: 'Warna hitam doff',
-          requires_accessories: false,
-          requires_welding: true,
-          progress: 20,
-          risk_level: 'HIGH',
-          risk_score: 75,
-          project_id: 'PRJ-001',
-          priority: 'medium',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          tracking: [
-            { 
-              process: 'warehouse_in', 
-              status: 'completed', 
-              quantity_completed: 10, 
-              defect_quantity: 0, 
-              start_time: '2024-01-06T08:00', 
-              end_time: '2024-01-06T09:30', 
-              pic_name: 'Budi', 
-              last_updated: '2024-01-06T09:30' 
-            },
-            { 
-              process: 'sanding', 
-              status: 'completed', 
-              quantity_completed: 10, 
-              defect_quantity: 0, 
-              start_time: '2024-01-06T10:00', 
-              end_time: '2024-01-06T15:00', 
-              pic_name: 'Ahmad', 
-              last_updated: '2024-01-06T15:00' 
-            },
-            { 
-              process: 'assembly', 
-              status: 'in_progress', 
-              quantity_completed: 2, 
-              defect_quantity: 0, 
-              start_time: '2024-01-09T08:00', 
-              end_time: null, 
-              pic_name: 'Sari', 
-              last_updated: '2024-01-10T12:00' 
-            }
-          ]
-        }
-      ];
-      await setToKV('orders', defaultOrders);
-      console.log('✅ Initialized default orders');
+    if (orders === 0) {
+      await db.collection("orders").insertMany(defaultOrders);
+      console.log("✅ Initialized default orders");
     }
-
-    // Initialize projects if empty
-    if (!projects || projects.length === 0) {
-      const defaultProjects = [
-        {
-          project_id: 'PRJ-001',
-          project_name: 'Office Furniture Project',
-          project_description: 'Complete office furniture set for client',
-          start_date: '2024-01-01',
-          end_date: '2024-01-25',
-          client: 'PT Maju Jaya',
-          project_manager: 'Budi Santoso',
-          status: 'in_progress',
-          notes: 'High priority project',
-          created_date: '2024-01-01',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }
-      ];
-      await setToKV('projects', defaultProjects);
-      console.log('✅ Initialized default projects');
+    if (projects === 0) {
+      await db.collection("projects").insertMany(defaultProjects);
+      console.log("✅ Initialized default projects");
     }
-
-    // Initialize settings if empty
-    if (!settings) {
-      const defaultSettings = {
-        logo: {
-          icon: 'industry',
-          customUrl: null
-        },
-        efficiency: {
-          warehouse_in: { targetTime: 2, targetQuality: 99, targetOutput: 100 },
-          sanding: { targetTime: 4, targetQuality: 95, targetOutput: 90 },
-          assembly: { targetTime: 6, targetQuality: 97, targetOutput: 95 },
-          coloring: { targetTime: 3, targetQuality: 98, targetOutput: 92 },
-          accessories: { targetTime: 2, targetQuality: 96, targetOutput: 94 },
-          welding: { targetTime: 5, targetQuality: 95, targetOutput: 88 },
-          inspection: { targetTime: 1, targetQuality: 100, targetOutput: 100 },
-          coating: { targetTime: 4, targetQuality: 97, targetOutput: 90 },
-          packaging: { targetTime: 2, targetQuality: 99, targetOutput: 98 },
-          warehouse_out: { targetTime: 1, targetQuality: 100, targetOutput: 100 }
-        },
-        company: {
-          name: 'Java Connection',
-          address: 'Jakarta, Indonesia',
-          phone: '+62 21 1234 5678',
-          email: 'info@javaconnection.com'
-        }
-      };
-      await setToKV('settings', defaultSettings);
-      console.log('✅ Initialized default settings');
+    if (settings === 0) {
+      await db.collection("settings").insertOne(defaultSettings);
+      console.log("✅ Initialized default settings");
     }
-  } catch (error) {
-    console.error('Error initializing data:', error);
+  } catch (err) {
+    console.error("Error initializing data:", err);
+  } finally {
+    await client.close();
   }
 }
 
-// Orders handler
-async function handleOrders(req, res, method, id) {
-  try {
-    let orders = await getFromKV('orders') || [];
-    
-    switch (method) {
-      case 'GET':
-        if (id) {
-          const order = orders.find(o => o.order_id === id);
-          if (!order) return res.status(404).json({ error: 'Order not found' });
-          return res.status(200).json(order);
-        }
-        return res.status(200).json(orders);
-
-      case 'POST':
-        const newOrder = req.body;
-        newOrder.order_id = `ORD-${Date.now()}`;
-        newOrder.created_at = new Date().toISOString();
-        newOrder.updated_at = new Date().toISOString();
-        newOrder.current_status = 'pending';
-        newOrder.progress = 0;
-        newOrder.risk_level = 'LOW';
-        newOrder.risk_score = 10;
-        
-        // Initialize tracking
-        const productionProcesses = [
-          { id: 'warehouse_in', name: 'Gudang Masuk' },
-          { id: 'sanding', name: 'Amplas' },
-          { id: 'assembly', name: 'Perakitan' },
-          { id: 'coloring', name: 'Pewarnaan' },
-          { id: 'accessories', name: 'Aksesoris', optional: true },
-          { id: 'welding', name: 'Las', optional: true },
-          { id: 'inspection', name: 'Inspeksi' },
-          { id: 'coating', name: 'Pelapisan' },
-          { id: 'packaging', name: 'Packaging & Kode' },
-          { id: 'warehouse_out', name: 'Gudang Akhir' }
-        ];
-        
-        newOrder.tracking = productionProcesses.map(process => ({
-          process: process.id,
-          status: 'pending',
-          quantity_completed: 0,
-          defect_quantity: 0,
-          start_time: null,
-          end_time: null,
-          pic_name: '',
-          issues: '',
-          last_updated: null
-        }));
-        
-        orders.push(newOrder);
-        await setToKV('orders', orders);
-        return res.status(201).json(newOrder);
-
-      case 'PUT':
-        if (!id) return res.status(400).json({ error: 'Order ID required' });
-        
-        const updateIndex = orders.findIndex(o => o.order_id === id);
-        if (updateIndex === -1) return res.status(404).json({ error: 'Order not found' });
-        
-        orders[updateIndex] = { 
-          ...orders[updateIndex], 
-          ...req.body, 
-          updated_at: new Date().toISOString() 
-        };
-        
-        await setToKV('orders', orders);
-        return res.status(200).json(orders[updateIndex]);
-
-      case 'DELETE':
-        if (!id) return res.status(400).json({ error: 'Order ID required' });
-        
-        const deleteIndex = orders.findIndex(o => o.order_id === id);
-        if (deleteIndex === -1) return res.status(404).json({ error: 'Order not found' });
-        
-        orders.splice(deleteIndex, 1);
-        await setToKV('orders', orders);
-        return res.status(200).json({ message: 'Order deleted successfully' });
-
-      default:
-        return res.status(405).json({ error: 'Method not allowed' });
-    }
-  } catch (error) {
-    console.error('Error in handleOrders:', error);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
+// === HELPERS ===
+function initializeTracking(order) {
+  const processes = [
+    "warehouse_in", "sanding", "assembly", "coloring",
+    "accessories", "welding", "inspection", "coating",
+    "packaging", "warehouse_out"
+  ];
+  return processes.map(p => ({
+    process: p,
+    status: "pending",
+    quantity_completed: 0,
+    defect_quantity: 0,
+    start_time: null,
+    end_time: null,
+    pic_name: "",
+    last_updated: null,
+  }));
 }
 
-// Projects handler
-async function handleProjects(req, res, method, id) {
-  try {
-    let projects = await getFromKV('projects') || [];
-    
-    switch (method) {
-      case 'GET':
-        if (id) {
-          const project = projects.find(p => p.project_id === id);
-          if (!project) return res.status(404).json({ error: 'Project not found' });
-          return res.status(200).json(project);
-        }
-        return res.status(200).json(projects);
-
-      case 'POST':
-        const newProject = req.body;
-        newProject.project_id = `PRJ-${Date.now()}`;
-        newProject.created_at = new Date().toISOString();
-        newProject.updated_at = new Date().toISOString();
-        
-        projects.push(newProject);
-        await setToKV('projects', projects);
-        return res.status(201).json(newProject);
-
-      case 'PUT':
-        if (!id) return res.status(400).json({ error: 'Project ID required' });
-        
-        const updateIndex = projects.findIndex(p => p.project_id === id);
-        if (updateIndex === -1) return res.status(404).json({ error: 'Project not found' });
-        
-        projects[updateIndex] = { 
-          ...projects[updateIndex], 
-          ...req.body, 
-          updated_at: new Date().toISOString() 
-        };
-        
-        await setToKV('projects', projects);
-        return res.status(200).json(projects[updateIndex]);
-
-      case 'DELETE':
-        if (!id) return res.status(400).json({ error: 'Project ID required' });
-        
-        const deleteIndex = projects.findIndex(p => p.project_id === id);
-        if (deleteIndex === -1) return res.status(404).json({ error: 'Project not found' });
-        
-        projects.splice(deleteIndex, 1);
-        await setToKV('projects', projects);
-        return res.status(200).json({ message: 'Project deleted successfully' });
-
-      default:
-        return res.status(405).json({ error: 'Method not allowed' });
-    }
-  } catch (error) {
-    console.error('Error in handleProjects:', error);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
-}
-
-// Settings handler
-async function handleSettings(req, res, method, id) {
-  try {
-    let settings = await getFromKV('settings') || {
-      logo: { icon: 'industry', customUrl: null },
-      efficiency: {},
-      company: {
-        name: 'Java Connection',
-        address: '',
-        phone: '',
-        email: ''
-      }
-    };
-    
-    switch (method) {
-      case 'GET':
-        return res.status(200).json(settings);
-
-      case 'PUT':
-        settings = { 
-          ...settings, 
-          ...req.body, 
-          updated_at: new Date().toISOString() 
-        };
-        
-        await setToKV('settings', settings);
-        return res.status(200).json(settings);
-
-      default:
-        return res.status(405).json({ error: 'Method not allowed' });
-    }
-  } catch (error) {
-    console.error('Error in handleSettings:', error);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
-}
-
-// Tracking handler
-async function handleTracking(req, res, method, id) {
-  try {
-    if (method !== 'PUT') {
-      return res.status(405).json({ error: 'Method not allowed' });
-    }
-    
-    if (!id) {
-      return res.status(400).json({ error: 'Order ID required' });
-    }
-    
-    const { processId, trackingData } = req.body;
-    
-    if (!processId || !trackingData) {
-      return res.status(400).json({ error: 'Process ID and tracking data required' });
-    }
-    
-    let orders = await getFromKV('orders') || [];
-    const orderIndex = orders.findIndex(o => o.order_id === id);
-    
-    if (orderIndex === -1) {
-      return res.status(404).json({ error: 'Order not found' });
-    }
-    
-    const trackingIndex = orders[orderIndex].tracking.findIndex(t => t.process === processId);
-    
-    if (trackingIndex === -1) {
-      return res.status(404).json({ error: 'Process not found' });
-    }
-    
-    // Update tracking
-    orders[orderIndex].tracking[trackingIndex] = {
-      ...orders[orderIndex].tracking[trackingIndex],
-      ...trackingData,
-      last_updated: new Date().toISOString()
-    };
-    
-    // Update order status
-    updateOrderStatus(orders[orderIndex]);
-    orders[orderIndex].updated_at = new Date().toISOString();
-    
-    await setToKV('orders', orders);
-    return res.status(200).json(orders[orderIndex]);
-    
-  } catch (error) {
-    console.error('Error in handleTracking:', error);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
-}
-
-// Export handler
-import * as XLSX from 'xlsx'; // make sure this import exists at the top of your file
-
-async function handleExport(req, res, method) {
-  if (method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  const { query } = req;
-  const { target } = query;
-
-  try {
-    // Load all datasets from KV
-    const [orders, projects, tracking, settings] = await Promise.all([
-      getFromKV('orders') || [],
-      getFromKV('projects') || [],
-      getFromKV('tracking') || [],
-      getFromKV('settings') || {}
-    ]);
-
-    const workbook = XLSX.utils.book_new();
-
-    // --- CASE 1: Orders Data ---
-    if (target === 'orders') {
-      const ws = XLSX.utils.json_to_sheet(orders || []);
-      XLSX.utils.book_append_sheet(workbook, ws, 'Orders');
-    }
-
-    // --- CASE 2: Projects Data ---
-    else if (target === 'projects') {
-      const ws = XLSX.utils.json_to_sheet(projects || []);
-      XLSX.utils.book_append_sheet(workbook, ws, 'Projects');
-    }
-
-    // --- CASE 3: Tracking Data ---
-    else if (target === 'tracking') {
-      const ws = XLSX.utils.json_to_sheet(tracking || []);
-      XLSX.utils.book_append_sheet(workbook, ws, 'Tracking');
-    }
-
-    // --- CASE 4: Efficiency Report ---
-    else if (target === 'efficiency') {
-      const efficiency = settings?.efficiency
-        ? Object.entries(settings.efficiency).map(([key, value]) => ({
-            process_id: key,
-            process_name: value.name,
-            target_time: value.targetTime,
-            target_quality: value.targetQuality,
-            target_output: value.targetOutput,
-            criteria: Array.isArray(value.criteria)
-              ? value.criteria.join('; ')
-              : value.criteria || ''
-          }))
-        : [];
-      const ws = XLSX.utils.json_to_sheet(efficiency);
-      XLSX.utils.book_append_sheet(workbook, ws, 'Efficiency');
-    }
-
-    // --- CASE 5: Complete Report ---
-    else if (target === 'complete') {
-      const wsOrders = XLSX.utils.json_to_sheet(orders || []);
-      XLSX.utils.book_append_sheet(workbook, wsOrders, 'Orders');
-
-      const wsProjects = XLSX.utils.json_to_sheet(projects || []);
-      XLSX.utils.book_append_sheet(workbook, wsProjects, 'Projects');
-
-      const wsTracking = XLSX.utils.json_to_sheet(tracking || []);
-      XLSX.utils.book_append_sheet(workbook, wsTracking, 'Tracking');
-
-      const efficiency = settings?.efficiency
-        ? Object.entries(settings.efficiency).map(([key, value]) => ({
-            process_id: key,
-            process_name: value.name,
-            target_time: value.targetTime,
-            target_quality: value.targetQuality,
-            target_output: value.targetOutput,
-            criteria: Array.isArray(value.criteria)
-              ? value.criteria.join('; ')
-              : value.criteria || ''
-          }))
-        : [];
-      const wsEfficiency = XLSX.utils.json_to_sheet(efficiency);
-      XLSX.utils.book_append_sheet(workbook, wsEfficiency, 'Efficiency');
-    }
-
-    // --- Invalid Target ---
-    else {
-      return res.status(400).json({ error: 'Invalid export target' });
-    }
-
-    // Write workbook to buffer and send
-    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename=${target}-report.xlsx`
-    );
-    res.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    );
-    return res.status(200).send(buffer);
-  } catch (error) {
-    console.error('❌ Export error:', error);
-    return res.status(500).json({ error: 'Error exporting data' });
-  }
-}
-
-// Helper function to update order status
 function updateOrderStatus(order) {
-  const applicableProcesses = [
-    'warehouse_in', 'sanding', 'assembly', 'coloring', 
-    'accessories', 'welding', 'inspection', 'coating', 
-    'packaging', 'warehouse_out'
-  ].filter(process => {
-    if (process === 'accessories' && !order.requires_accessories) return false;
-    if (process === 'welding' && !order.requires_welding) return false;
-    return true;
-  });
+  const applicable = [
+    "warehouse_in", "sanding", "assembly", "coloring",
+    "accessories", "welding", "inspection", "coating",
+    "packaging", "warehouse_out"
+  ].filter(p => !(p === "accessories" && !order.requires_accessories) && !(p === "welding" && !order.requires_welding));
 
-  const completedProcesses = applicableProcesses.filter(process => {
-    const tracking = order.tracking.find(t => t.process === process);
-    return tracking && tracking.quantity_completed === order.quantity;
+  const done = applicable.filter(p => {
+    const t = order.tracking.find(x => x.process === p);
+    return t && t.quantity_completed === order.quantity;
   }).length;
 
-  order.progress = Math.round((completedProcesses / applicableProcesses.length) * 100);
-
-  const warehouseOut = order.tracking.find(t => t.process === 'warehouse_out');
-  if (warehouseOut && warehouseOut.quantity_completed === order.quantity) {
-    order.current_status = 'completed';
-  } else if (order.tracking.some(t => t.quantity_completed > 0)) {
-    order.current_status = 'in_progress';
-  } else {
-    order.current_status = 'pending';
-  }
+  order.progress = Math.round((done / applicable.length) * 100);
+  order.current_status = done === applicable.length
+    ? "completed"
+    : order.tracking.some(t => t.quantity_completed > 0)
+    ? "in_progress"
+    : "pending";
 }
+
+// === DEFAULT DATA ===
+const defaultOrders = [
+  {
+    order_id: "ORD-001",
+    customer_name: "PT Maju Jaya",
+    product_description: "Meja Kerja Kayu",
+    quantity: 5,
+    order_date: "2024-01-01",
+    target_date: "2024-01-21",
+    pic_name: "Budi Santoso",
+    current_status: "in_progress",
+    notes: "Prioritas tinggi",
+    requires_accessories: true,
+    requires_welding: false,
+    progress: 40,
+    risk_level: "MEDIUM",
+    risk_score: 60,
+    project_id: "PRJ-001",
+    priority: "high",
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    tracking: initializeTracking({ quantity: 5 }),
+  },
+];
+
+const defaultProjects = [
+  {
+    project_id: "PRJ-001",
+    project_name: "Office Furniture Project",
+    project_description: "Complete office furniture set for client",
+    start_date: "2024-01-01",
+    end_date: "2024-01-25",
+    client: "PT Maju Jaya",
+    project_manager: "Budi Santoso",
+    status: "in_progress",
+    notes: "High priority project",
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
+const defaultSettings = {
+  logo: { icon: "industry", customUrl: null },
+  company: {
+    name: "Java Connection",
+    address: "Jakarta, Indonesia",
+    phone: "+62 21 1234 5678",
+    email: "info@javaconnection.com",
+  },
+  efficiency: {
+    warehouse_in: { targetTime: 2, targetQuality: 99, targetOutput: 100 },
+    sanding: { targetTime: 4, targetQuality: 95, targetOutput: 90 },
+    assembly: { targetTime: 6, targetQuality: 97, targetOutput: 95 },
+    coloring: { targetTime: 3, targetQuality: 98, targetOutput: 92 },
+  },
+};

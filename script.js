@@ -133,27 +133,25 @@ function loadEfficiencySettings() {
     const saved = localStorage.getItem('processEfficiencySettings');
     return saved ? JSON.parse(saved) : {...defaultEfficiencySettings};
 }
+// Save orders to MongoDB via backend API
+async function saveOrdersToDatabase() {
+  try {
+    const response = await fetch('/api?type=orders', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(orders)
+    });
 
-// Save order to KV
-async function saveOrdersToKV() {
-    try {
-        const response = await fetch('/api?type=orders', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(orders)
-        });
-
-        if (!response.ok) {
-            const errText = await response.text();
-            console.error('❌ Failed to save orders:', errText);
-            showAlert('Could not sync orders with server.', 'warning');
-        } else {
-            console.log('✅ Orders saved to KV');
-        }
-    } catch (error) {
-        console.error('❌ Failed to save orders to KV:', error);
-        showAlert('Could not sync orders with server.', 'warning');
+    if (!response.ok) {
+      console.error('❌ Failed to save orders:', await response.text());
+      showAlert('Could not sync orders with server.', 'warning');
+    } else {
+      console.log('✅ Orders saved to MongoDB');
     }
+  } catch (error) {
+    console.error('❌ Failed to save orders:', error);
+    showAlert('Could not sync orders with server.', 'warning');
+  }
 }
 
 // Save efficiency settings
@@ -180,17 +178,17 @@ async function saveEfficiencySettings() {
     // ✅ Save locally for instant use
     localStorage.setItem('processEfficiencySettings', JSON.stringify(settings));
 
-    // ✅ Also persist to Vercel KV so it survives refresh/login
+    // ✅ Also persist to MongoDB via backend API
     try {
-        await fetch('/api?type=settings', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ efficiency: settings })
-        });
-        console.log('✅ Efficiency settings saved to KV');
+    await fetch('/api?type=settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ efficiency: settings })
+    });
+    console.log('✅ Efficiency settings saved to MongoDB');
     } catch (error) {
-        console.error('❌ Failed to save settings to KV:', error);
-        showAlert('Failed to sync with server (KV). Local copy saved only.', 'warning');
+    console.error('❌ Failed to save settings:', error);
+    showAlert('Failed to sync with server. Local copy saved only.', 'warning');
     }
 
     showAlert('Efficiency settings saved successfully!', 'success');
@@ -508,7 +506,6 @@ document.getElementById('project-form').addEventListener('submit', async (e) => 
             projects.push(newProject);
         }
 
-        // ✅ Save permanently to KV via API
         await fetch('/api?type=projects', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -532,7 +529,6 @@ async function deleteProject(projectId) {
             // Remove project locally
             projects = projects.filter(p => p.project_id !== projectId);
 
-            // ✅ Update KV
             await fetch(`/api?type=projects`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -2964,9 +2960,6 @@ document.getElementById('order-form').addEventListener('submit', async (e) => {
                 orders[index].risk_level = riskAssessment.risk_level;
                 orders[index].risk_score = riskAssessment.risk_score;
 
-                // ✅ Persist update to KV
-                await saveOrdersToKV();
-
                 showAlert('Order updated successfully', 'success');
             }
         } else {
@@ -3003,9 +2996,6 @@ document.getElementById('order-form').addEventListener('submit', async (e) => {
             };
             orders.push(newOrder);
 
-            // ✅ Persist creation to KV
-            await saveOrdersToKV();
-
             showAlert('Order created successfully', 'success');
         }
 
@@ -3029,7 +3019,6 @@ async function deleteOrder(orderId) {
     if (confirm(`Are you sure you want to delete order ${orderId}?`)) {
         try {
             orders = orders.filter(o => o.order_id !== orderId);
-            await saveOrdersToKV();
             showAlert('Order deleted successfully', 'success');
             loadOrders();
             loadDashboard();
@@ -3084,9 +3073,6 @@ document.getElementById('tracking-form').addEventListener('submit', async (e) =>
 
                 // Update order status and progress
                 updateOrderStatus(order);
-
-                // ✅ Persist all order data to KV
-                await saveOrdersToKV();
 
                 showAlert('Tracking updated successfully', 'success');
                 e.target.reset();

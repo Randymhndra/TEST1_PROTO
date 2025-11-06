@@ -17,7 +17,7 @@ A comprehensive production management system for manufacturing and export busine
 
 - **Frontend**: HTML5, CSS3, JavaScript, Chart.js
 - **Backend**: Vercel Serverless Functions
-- **Database**: Vercel KV (Key-Value Storage)
+- **Database**: MongoDB Atlas (Hosted NoSQL Database)
 - **Deployment**: Vercel
 
 ## Installation

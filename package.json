@@ -22,7 +22,7 @@
   "license": "MIT",
   "dependencies": {
     "@vercel/node": "^3.0.0",
-    "@vercel/kv": "^1.0.1",
+    "mongodb": "^6.9.0",
     "cors": "^2.8.5"
   },
   "devDependencies": {
