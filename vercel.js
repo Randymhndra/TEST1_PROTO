@@ -1,5 +1,5 @@
 // ===== REAL-TIME SYNC CONFIGURATION =====
-const API_BASE = 'https://your-vercel-url.vercel.app/api'; // Ganti dengan URL API Vercel
+const API_BASE = '/api'; // Ganti dengan URL API Vercel
 let lastSyncTime = 0;
 let syncInterval = 5000; // Sync setiap 5 detik
 let isFirstLoad = true;
