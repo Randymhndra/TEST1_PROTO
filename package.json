@@ -1,0 +1,34 @@
+{
+  "name": "java-connection-production",
+  "version": "1.0.0",
+  "description": "Production Management System for Java Connection - Real-time Updates",
+  "main": "index.html",
+  "type": "module",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "node build.js",
+    "start": "vercel dev",
+    "deploy": "npm run build && vercel --prod",
+    "clean": "rm -rf public"
+  },
+  "keywords": [
+    "production",
+    "management",
+    "dashboard",
+    "manufacturing",
+    "realtime"
+  ],
+  "author": "Java Connection",
+  "license": "MIT",
+  "dependencies": {
+    "@vercel/node": "^3.0.0",
+    "@vercel/kv": "^1.0.1",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "vercel": "^32.0.0"
+  },
+  "engines": {
+    "node": "22.x"
+  }
+}
