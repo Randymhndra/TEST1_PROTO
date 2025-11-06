@@ -167,22 +167,51 @@ export default async function handler(req, res) {
       }
     }
 
-    // --- DELETE Requests (THE FIX IS HERE) ---
+// --- DELETE Requests (NEW DEBUGGING VERSION) ---
     if (req.method === 'DELETE') {
+      
+      console.log("--- DELETE Request Received ---");
+      console.log("Query:", req.query);
+      console.log("Body Type:", typeof req.body);
+      console.log("Raw Body:", req.body);
+      
+      // Vercel sometimes stringifies the body, let's check
+      let body = req.body;
+      if (typeof body === 'string') {
+        try {
+          body = JSON.parse(body);
+        } catch (e) {
+          console.error("Body was a string but not valid JSON");
+        }
+      }
+
+      console.log("Parsed Body:", body);
+
       if (type === 'orders') {
-        const { order_id } = req.body;
-        if (!order_id) return res.status(400).json({ message: "Order ID missing" });
+        const { order_id } = body;
+        console.log("Extracted order_id:", order_id);
+
+        if (!order_id) {
+          console.error("Order ID is missing!");
+          return res.status(400).json({ message: "Order ID missing" });
+        }
         
         const result = await Order.deleteOne({ order_id: order_id });
         if (result.deletedCount === 0) {
             return res.status(404).json({ message: `Order ${order_id} not found` });
         }
+        console.log("✅ Successfully deleted order:", order_id);
         return res.status(200).json({ message: `Order ${order_id} deleted` });
       }
       
       if (type === 'projects') {
-        const { project_id } = req.body;
-        if (!project_id) return res.status(400).json({ message: "Project ID missing" });
+        const { project_id } = body;
+        console.log("Extracted project_id:", project_id);
+
+        if (!project_id) {
+          console.error("Project ID is missing!");
+          return res.status(400).json({ message: "Project ID missing" });
+        }
         
         // Also delete associated orders
         await Order.deleteMany({ project_id: project_id });
@@ -191,6 +220,7 @@ export default async function handler(req, res) {
         if (result.deletedCount === 0) {
             return res.status(404).json({ message: `Project ${project_id} not found` });
         }
+        console.log("✅ Successfully deleted project:", project_id);
         return res.status(200).json({ message: `Project ${project_id} and associated orders deleted` });
       }
     }
