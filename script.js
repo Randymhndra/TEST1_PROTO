@@ -724,6 +724,25 @@ function exportProjectsData() {
             const warehouseOut = order.tracking.find(t => t.process === 'warehouse_out');
             return sum + (warehouseOut ? warehouseOut.quantity_completed : 0);
         }, 0);
+
+        let totalVolume = 0;
+        let inProcessVolume = 0;
+
+        projectOrders.forEach(order => {
+            const L = order.package_length || 0;
+            const W = order.package_width  || 0;
+            const H = order.package_height || 0;
+            const qty = order.quantity || 0;
+
+            const volume = (L * W * H) / 1000000; // convert cm³ → m³
+            const orderTotal = volume * qty;
+
+            totalVolume += orderTotal;
+
+            if (order.current_status !== 'completed') {
+                inProcessVolume += orderTotal;
+            }
+        });
         
         const progress = totalQuantity > 0 ? Math.round((completedQuantity / totalQuantity) * 100) : 0;
         
@@ -1657,6 +1676,16 @@ async function analyzeProject() {
                     <div class="kpi-value" style="color: ${riskAssessment.risk_level === 'CRITICAL' ? 'var(--danger-color)' : riskAssessment.risk_level === 'HIGH' ? 'var(--warning-color)' : 'var(--info-color)'}">${riskAssessment.risk_level}</div>
                     <div class="kpi-label">Risk Score: ${riskAssessment.risk_score}/100</div>
                     <div class="kpi-label">Days Until Due: ${riskAssessment.days_until_due}</div>
+                </div>
+                <div class="dss-card">
+                    <h4><i class="fas fa-cube"></i> Total Volume (m³)</h4>
+                    <div class="kpi-value">${totalVolume.toFixed(3)}</div>
+                    <div class="kpi-label">Total cubic volume of all orders</div>
+                </div>
+                <div class="dss-card">
+                    <h4><i class="fas fa-box"></i> In-Process Volume (m³)</h4>
+                    <div class="kpi-value">${inProcessVolume.toFixed(3)}</div>
+                    <div class="kpi-label">Volume still in production</div>
                 </div>
                 <div class="dss-card forecast">
                     <h4><i class="fas fa-chart-pie"></i> Project Progress</h4>
