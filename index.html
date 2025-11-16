@@ -426,6 +426,24 @@
                     <label>Notes</label>
                     <textarea name="notes"></textarea>
                 </div>
+                <div class="form-group">
+                    <label>Package Dimensions (cm)</label>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Length</label>
+                        <input type="number" name="package_length" min="0" placeholder="Length (cm)" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Width</label>
+                        <input type="number" name="package_width" min="0" placeholder="Width (cm)" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Height</label>
+                        <input type="number" name="package_height" min="0" placeholder="Height (cm)" required>
+                    </div>
+                </div>
                 <div style="display: flex; gap: 12px; margin-top: 24px;">
                     <button type="submit" class="btn btn-primary" id="submit-button">Create Order</button>
                     <button type="button" class="btn" onclick="closeOrderModal()" style="background: var(--light-bg);">Cancel</button>
