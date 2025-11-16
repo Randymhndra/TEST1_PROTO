@@ -40,6 +40,7 @@ async function loadAndInitializeApp() {
       requires_accessories: o.requires_accessories ?? o.requiresAccessories ?? false,
       requires_welding: o.requires_welding ?? o.requiresWelding ?? false,
       notes: o.notes || "",
+      package_dimension: o.package_dimension || "",
       progress: o.progress || 0,
       risk_level: o.risk_level || o.riskLevel || "LOW",
       risk_score: o.risk_score || o.riskScore || 0,
@@ -57,6 +58,7 @@ async function loadAndInitializeApp() {
         project_manager: p.project_manager || '',
         status: p.status || 'planning',
         notes: p.notes || '',
+        package_dimension: o.package_dimension || "",
         created_at: p.created_at || new Date().toISOString(),
         updated_at: p.updated_at || new Date().toISOString()
     }));
