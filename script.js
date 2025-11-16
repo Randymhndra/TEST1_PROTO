@@ -1758,6 +1758,7 @@ async function analyzeProject() {
             </div>
         `;
 
+        projectOrders.forEach(order => { html += generateOrderSectionHTML(order); });
         document.getElementById('dss-project-results').innerHTML = html;
 
         // Render charts
@@ -1925,6 +1926,63 @@ function generateProjectRecommendations(project, riskAssessment, projectOrders) 
     }
     
     return recommendations;
+}
+
+// Generate the HTML for a single order breakdown inside project analysis
+function generateOrderSectionHTML(order) {
+    const orderVolume = ((order.package_length || 0) * (order.package_width || 0) * (order.package_height || 0)) / 1000000;
+    const volumePerUnit = orderVolume.toFixed(3);
+    const totalOrderVolume = (orderVolume * (order.quantity || 0)).toFixed(3);
+
+    // calculate per-workstation efficiencies using existing function
+    const processEff = updateEfficiencyCalculation(order); // returns { processId: efficiencyPercent, ... }
+
+    // Build efficiency list HTML
+    const effListHtml = Object.keys(processEff).map(pid => {
+        const proc = productionProcesses.find(p => p.id === pid);
+        const name = proc ? proc.name : pid;
+        const effVal = (processEff[pid] || 0).toFixed(1);
+        const badgeClass = processEff[pid] >= 80 ? 'badge-success' : processEff[pid] >= 50 ? 'badge-warning' : 'badge-danger';
+        return `<div class="pe-item"><div class="pe-name">${name}</div><div class="pe-value"><span class="badge ${badgeClass}">${effVal}%</span></div></div>`;
+    }).join('');
+
+    // compute timeline progress for the order (safe)
+    const start = order.order_date ? new Date(order.order_date) : null;
+    const end = order.target_date ? new Date(order.target_date) : null;
+    let orderTimeline = '-';
+    if (start && end) {
+        const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) || 1;
+        const daysPassed = Math.ceil((Date.now() - start) / (1000 * 60 * 60 * 24));
+        orderTimeline = `${Math.min(100, Math.max(0, Math.round((daysPassed / totalDays) * 100)))}%`;
+    }
+
+    return `
+    <div class="order-breakdown-card">
+        <div class="order-breakdown-header">
+            <div class="order-title"><strong>${order.order_id}</strong> — ${order.product_description || 'Product'}</div>
+            <div class="order-meta">${order.customer_name || ''} • ${order.current_status || ''}</div>
+        </div>
+
+        <div class="order-breakdown-grid">
+            <div><strong>Quantity</strong><div>${order.quantity || 0}</div></div>
+            <div><strong>Volume / unit</strong><div>${volumePerUnit} m³</div></div>
+            <div><strong>Total Volume</strong><div>${totalOrderVolume} m³</div></div>
+            <div><strong>Progress</strong><div>${order.progress || 0}%</div></div>
+            <div><strong>Risk</strong><div>${order.risk_level || order.risk || 'N/A'}</div></div>
+            <div><strong>Timeline</strong><div>${orderTimeline}</div></div>
+        </div>
+
+        <div class="process-efficiency-section">
+            <h4>Process Efficiency (per workstation)</h4>
+            <div class="process-efficiency-list">
+                ${effListHtml || '<div style="color:#6c757d">No process data</div>'}
+            </div>
+        </div>
+
+        ${order.notes ? `<div class="order-notes"><strong>Notes</strong><p>${order.notes}</p></div>` : ''}
+    </div>
+    <hr class="order-sep">
+    `;
 }
 
 // Analyze All Orders (Combined Analysis)

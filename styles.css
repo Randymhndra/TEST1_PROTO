@@ -786,6 +786,37 @@ textarea {
     display: block;
 }
 
+.order-breakdown-card {
+    background: white;
+    border-radius: 10px;
+    padding: 16px;
+    margin: 12px 0;
+    box-shadow: var(--card-shadow);
+    border: 1px solid var(--border-color);
+}
+.order-breakdown-header {
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    margin-bottom:12px;
+}
+.order-title { font-size:16px; color:var(--primary-color); }
+.order-meta { font-size:13px; color:#6c757d; }
+.order-breakdown-grid {
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap:12px;
+    margin-bottom:12px;
+}
+.order-breakdown-grid > div { background: #fbfbfb; padding:10px; border-radius:8px; }
+.process-efficiency-section { margin-top:10px; }
+.process-efficiency-list { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+.pe-item { display:flex; align-items:center; gap:10px; background:#f7f9f7; padding:8px 10px; border-radius:8px; }
+.pe-name { font-size:13px; color:#2c3e50; min-width:140px; }
+.pe-value { font-weight:700; }
+.order-notes { margin-top:12px; color:#333; }
+.order-sep { border: none; height: 1px; background: var(--border-color); margin: 16px 0; }
+
 /* Footer */
 footer {
     background: var(--primary-color);
