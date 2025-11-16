@@ -1621,7 +1621,27 @@ async function analyzeProject() {
             const warehouseOut = order.tracking.find(t => t.process === 'warehouse_out');
             return sum + (warehouseOut ? warehouseOut.quantity_completed : 0);
         }, 0);
-        
+
+        // Calculate rubrikasi volume
+        let totalVolume = 0;
+        let inProcessVolume = 0;
+
+        projectOrders.forEach(order => {
+            const L = order.package_length || 0;
+            const W = order.package_width  || 0;
+            const H = order.package_height || 0;
+            const qty = order.quantity || 0;
+
+            const volume = (L * W * H) / 1000000; // convert cm³ → m³
+            const orderTotal = volume * qty;
+
+            totalVolume += orderTotal;
+
+            if (order.current_status !== 'completed') {
+                inProcessVolume += orderTotal;
+            }
+        });
+                
         const completionRate = totalQuantity > 0 ? Math.round((completedQuantity / totalQuantity) * 100) : 0;
         
         // Calculate project timeline progress
