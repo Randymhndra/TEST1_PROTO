@@ -1237,6 +1237,7 @@ function renderOrders(ordersToRender) {
                     <td>${order.customer_name}</td>
                     <td>${order.product_description}</td>
                     <td>${order.quantity}</td>
+                    <td>${((order.package_length * order.package_width * order.package_height) / 1000000).toFixed(3)}</td>
                     <td>${order.order_date}</td>
                     <td>${order.target_date}</td>
                     <td>${project ? project.project_name : 'None'}</td>
