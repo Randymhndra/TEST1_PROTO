@@ -58,7 +58,6 @@ async function loadAndInitializeApp() {
         project_manager: p.project_manager || '',
         status: p.status || 'planning',
         notes: p.notes || '',
-        package_dimension: o.package_dimension || "",
         created_at: p.created_at || new Date().toISOString(),
         updated_at: p.updated_at || new Date().toISOString()
     }));
