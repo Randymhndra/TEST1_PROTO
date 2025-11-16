@@ -1689,6 +1689,30 @@ async function analyzeProject() {
             processEfficiency[process.id] = count > 0 ? totalEfficiency / count : 0;
         });
 
+        // Compute total quantity & volume per workstation
+        const workstationTotals = {};
+
+        productionProcesses.forEach(proc => {
+            workstationTotals[proc.id] = {
+                qty: 0,
+                volume: 0
+            };
+        });
+
+        projectOrders.forEach(order => {
+            const L = order.package_length || 0;
+            const W = order.package_width  || 0;
+            const H = order.package_height || 0;
+            const volumePerUnit = (L * W * H) / 1000000;
+
+            order.tracking.forEach(tr => {
+                if (workstationTotals[tr.process]) {
+                    workstationTotals[tr.process].qty += tr.quantity_completed || 0;
+                    workstationTotals[tr.process].volume += (tr.quantity_completed || 0) * volumePerUnit;
+                }
+            });
+        });
+
         let html = `
             <div class="dss-grid">
                 <div class="dss-card risk">
@@ -1763,7 +1787,7 @@ async function analyzeProject() {
 
         // Render charts
         renderProjectTimelineChart(project, timelineProgress, completionRate);
-        renderProjectProcessEfficiencyChart(processEfficiency);
+        renderProjectProcessEfficiencyChart(workstationTotals);
         renderProjectRiskChart(riskAssessment.order_risks);
         renderProjectResourceChart(projectOrders);
 
@@ -2653,27 +2677,46 @@ function renderProjectTimelineChart(project, timelineProgress, completionRate) {
     });
 }
 
-function renderProjectProcessEfficiencyChart(efficiencyData) {
-    const ctx = document.getElementById('projectProcessEfficiencyChart').getContext('2d');
-    
-    if (projectProcessEfficiencyChart) {
-        projectProcessEfficiencyChart.destroy();
+function renderProjectProcessEfficiencyChart(workstationTotals) {
+    // ensure canvas exists
+    const canvas = document.getElementById('projectProcessEfficiencyChart');
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+
+    // Use a global stored on window to avoid redeclaration errors
+    if (window.projectProcessEfficiencyChart) {
+        try { window.projectProcessEfficiencyChart.destroy(); } catch (e) { /* ignore destroy errors */ }
     }
-    
-    const processNames = productionProcesses.map(p => p.name);
-    const efficiencyValues = productionProcesses.map(p => efficiencyData[p.id] || 0);
-    
-    projectProcessEfficiencyChart = new Chart(ctx, {
+
+    const labels = Object.keys(workstationTotals).map(pid => {
+        const proc = productionProcesses.find(p => p.id === pid);
+        return proc ? proc.name : pid;
+    });
+
+    const qtyData = Object.values(workstationTotals).map(v => v.qty || 0);
+    const volumeData = Object.values(workstationTotals).map(v => Number((v.volume || 0).toFixed(3)));
+
+    window.projectProcessEfficiencyChart = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: processNames,
-            datasets: [{
-                label: 'Efficiency (%)',
-                data: efficiencyValues,
-                backgroundColor: 'rgba(67, 97, 238, 0.7)',
-                borderColor: '#4361ee',
-                borderWidth: 1
-            }]
+            labels,
+            datasets: [
+                {
+                    label: 'Quantity Completed',
+                    data: qtyData,
+                    backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Volume (m³)',
+                    data: volumeData,
+                    backgroundColor: 'rgba(255, 159, 64, 0.6)',
+                    borderColor: 'rgba(255, 159, 64, 1)',
+                    borderWidth: 1
+                }
+            ]
         },
         options: {
             responsive: true,
@@ -2681,10 +2724,19 @@ function renderProjectProcessEfficiencyChart(efficiencyData) {
             scales: {
                 y: {
                     beginAtZero: true,
-                    max: 100,
-                    ticks: {
-                        callback: function(value) {
-                            return value + '%';
+                    ticks: { font: { size: 12 } }
+                },
+                x: { ticks: { font: { size: 12 } } }
+            },
+            plugins: {
+                legend: { labels: { font: { size: 12 } } },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            if (context.dataset.label && context.dataset.label.includes('Volume')) {
+                                return `${context.dataset.label}: ${context.formattedValue} m³`;
+                            }
+                            return `${context.dataset.label}: ${context.formattedValue}`;
                         }
                     }
                 }
