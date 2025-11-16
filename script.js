@@ -740,6 +740,8 @@ function exportProjectsData() {
             'Total Quantity': totalQuantity,
             'Completed Quantity': completedQuantity,
             'Progress': `${progress}%`,
+            'Total Volume (m³)': totalVolume.toFixed(3),
+            'In-Process Volume (m³)': inProcessVolume.toFixed(3),
             'Notes': project.notes || '',
             'Created Date': project.created_date
         };
