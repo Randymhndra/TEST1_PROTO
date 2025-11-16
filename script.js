@@ -2849,6 +2849,9 @@ function openOrderModal(orderId = null) {
             document.querySelector('input[name="pic_name"]').value = order.pic_name;
             document.querySelector('select[name="priority"]').value = order.priority || 'medium';
             document.querySelector('textarea[name="notes"]').value = order.notes || '';
+            document.querySelector('input[name="package_length"]').value = order.package_length || 0;
+            document.querySelector('input[name="package_width"]').value  = order.package_width  || 0;
+            document.querySelector('input[name="package_height"]').value = order.package_height || 0;
             document.getElementById('requires-accessories').checked = order.requires_accessories || false;
             document.getElementById('requires-welding').checked = order.requires_welding || false;
         }
@@ -2886,6 +2889,10 @@ document.getElementById('order-form').addEventListener('submit', async (e) => {
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData);
     const orderId = document.getElementById('order-id').value;
+
+    data.package_length = parseFloat(data.package_length) || 0;
+    data.package_width  = parseFloat(data.package_width)  || 0;
+    data.package_height = parseFloat(data.package_height) || 0;
 
     // Add the extra boolean data and types
     data.requires_accessories = document.getElementById('requires-accessories').checked;
