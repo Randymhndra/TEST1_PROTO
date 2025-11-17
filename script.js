@@ -980,31 +980,47 @@ function calculateRiskAtDate(order, date) {
     return calculateRiskAssessment(order, date).risk_score;
 }
 
-function generateRiskTimeline(order, totalWeeks) {
-    if (!order.order_date) return [];
+function generateRiskTimeline(order) {
+    const weekDates = generateDynamicWeekDates(order);
 
-    const start = new Date(order.order_date);
-
-    const points = [];
-    for (let w = 0; w <= totalWeeks; w++) {
-        const date = getDateAfterWeeks(start, w);
-
-        // Calculate risk based on tracking events before this date
-        const relevant = order.tracking.filter(
-            t => t.last_updated && new Date(t.last_updated) <= date
+    return weekDates.map(date => {
+        // processes finished before this date
+        const completed = order.tracking.filter(
+            t => t.end_time && new Date(t.end_time) <= date
         );
 
-        let risk = 0;
-        relevant.forEach(r => {
-            risk += r.defect_quantity * 5;
-            if (r.issues && r.issues.length > 1) risk += 3;
-        });
+        const total = order.tracking.length || 1;
+        const progress = completed.length / total;
 
-        risk = Math.min(100, Math.round(risk));
-        points.push(risk);
+        let defectTotal = completed.reduce((s, t) => s + (t.defect_quantity || 0), 0);
+        let delayFactor = 0;
+
+        // delay factor (if we are past end_date)
+        if (date > new Date(order.target_date)) {
+            delayFactor = 0.25;
+        }
+
+        // raw risk scoring logic
+        let risk = (1 - progress) * 60 + defectTotal * 4 + delayFactor * 30;
+        return Math.min(100, Math.max(0, Math.round(risk)));
+    });
+}
+
+function generateDynamicWeekDates(order) {
+    const start = new Date(order.order_date);
+    const end = new Date(order.target_date);
+
+    const totalDays = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
+    const totalWeeks = Math.ceil(totalDays / 7);
+
+    const weeks = [];
+    for (let i = 0; i <= totalWeeks; i++) {
+        const d = new Date(start);
+        d.setDate(start.getDate() + i * 7);
+        weeks.push(d);
     }
 
-    return points;
+    return weeks;
 }
 
 function getWeeksBetween(startDate, endDate) {
@@ -1020,64 +1036,67 @@ function getDateAfterWeeks(startDate, weekNumber) {
     return d;
 }
 
-function polynomialTrend(values) {
-    const n = values.length;
+function polynomialTrend(data) {
+    const n = data.length;
+    if (n < 3) return data;
+
     const x = [...Array(n).keys()];
-    const y = values;
+    const y = data;
 
-    const sumX = x.reduce((a,b)=>a+b,0);
-    const sumX2 = x.reduce((a,b)=>a+b*b,0);
-    const sumX3 = x.reduce((a,b)=>a+b*b*b,0);
-    const sumX4 = x.reduce((a,b)=>a+b*b*b*b,0);
-    const sumY = y.reduce((a,b)=>a+b,0);
-    const sumXY = x.reduce((a,b,i)=>a+b*y[i],0);
-    const sumX2Y = x.reduce((a,b,i)=>a+b*b*y[i],0);
+    // Quadratic regression Σ calculations
+    let sumX=0, sumX2=0, sumX3=0, sumX4=0;
+    let sumY=0, sumXY=0, sumX2Y=0;
 
-    const m = [
-        [n, sumX, sumX2],
-        [sumX, sumX2, sumX3],
-        [sumX2, sumX3, sumX4]
-    ];
-    const v = [sumY, sumXY, sumX2Y];
-
-    function solve(matrix, vector) {
-        const a = JSON.parse(JSON.stringify(matrix));
-        const b = [...vector];
-
-        for (let i = 0; i < 3; i++) {
-            let maxRow = i;
-            for (let j = i + 1; j < 3; j++)
-                if (Math.abs(a[j][i]) > Math.abs(a[maxRow][i])) maxRow = j;
-
-            [a[i], a[maxRow]] = [a[maxRow], a[i]];
-            [b[i], b[maxRow]] = [b[maxRow], b[i]];
-
-            for (let j = i + 1; j < 3; j++) {
-                const ratio = a[j][i] / a[i][i];
-                for (let k = i; k < 3; k++) a[j][k] -= ratio * a[i][k];
-                b[j] -= ratio * b[i];
-            }
-        }
-
-        const sol = Array(3).fill(0);
-        for (let i = 2; i >= 0; i--) {
-            sol[i] = b[i] / a[i][i];
-            for (let j = 0; j < i; j++)
-                b[j] -= a[j][i] * sol[i];
-        }
-        return sol;
+    for (let i=0; i<n; i++) {
+        const xi = x[i];
+        const yi = y[i];
+        sumX += xi;
+        sumX2 += xi*xi;
+        sumX3 += xi*xi*xi;
+        sumX4 += xi*xi*xi*xi;
+        sumY += yi;
+        sumXY += xi*yi;
+        sumX2Y += xi*xi*yi;
     }
 
-    const [a, b, c] = solve(m, v);
+    const denominator =
+        (n*sumX2*sumX4 + 2*sumX*sumX2*sumX3) -
+        (sumX2*sumX2*sumX2 + n*sumX3*sumX3 + sumX*sumX*sumX4);
 
-    return x.map(i => a + b * i + c * i * i);
+    if (denominator === 0) return data;
+
+    const a =
+        (sumY*sumX2*sumX4 + sumX*sumX3*sumX2Y + sumX2*sumXY*sumX3)
+        - (sumX2*sumX2*sumX2Y + sumY*sumX3*sumX3 + sumX*sumXY*sumX4)
+        ) / denominator;
+
+    const b =
+        (n*sumXY*sumX4 + sumY*sumX2*sumX3 + sumX*sumX2*sumX2Y)
+        - (sumY*sumX2*sumX4 + n*sumX3*sumX2Y + sumXY*sumX*sumX3)
+        ) / denominator;
+
+    const c =
+        (n*sumX2*sumX2Y + sumX*sumXY*sumX3 + sumY*sumX*sumX2)
+        - (sumX2*sumX*sumX2Y + sumX2*sumXY*sumX2 + sumY*n*sumX3)
+        ) / denominator;
+
+    return x.map(i => Math.round(a*i*i + b*i + c));
 }
 
-function createPredictedRisk(values) {
-    const last = values[values.length - 1];
-    const velocity = (values[values.length - 1] - values[0]) / values.length;
-    const predicted = last + velocity * 2;
-    return [...values.slice(0, 5), Math.min(100, Math.max(0, predicted))];
+function createPredictedRisk(actualRisk) {
+    if (actualRisk.length < 2) return actualRisk;
+
+    const predicted = [...actualRisk];
+    const last = actualRisk[actualRisk.length - 1];
+    const prev = actualRisk[actualRisk.length - 2];
+
+    const slope = last - prev;
+
+    for (let i = actualRisk.length; i < actualRisk.length + 2; i++) {
+        predicted.push(Math.max(0, Math.min(100, predicted[predicted.length - 1] + slope)));
+    }
+
+    return predicted.slice(0, actualRisk.length);
 }
 
 // Project Risk Assessment Function
@@ -2462,23 +2481,21 @@ function renderRiskTimelineChart(order) {
     const ctx = document.getElementById("riskTimelineChart").getContext("2d");
 
     if (riskTimelineChart) riskTimelineChart.destroy();
-
     if (!order.order_date || !order.target_date) return;
 
     const start = new Date(order.order_date);
     const end = new Date(order.target_date);
-    const totalWeeks = getWeeksBetween(start, end);
 
-    const labels = [];
-    for (let i = 0; i <= totalWeeks; i++) {
-        labels.push("W" + i);
-    }
-    labels[0] = "Start";
+    // dynamic week list generated from real dates
+    const weekDates = generateDynamicWeekDates(order);
+    const labels = ["Start", ...weekDates.slice(1).map((_, i) => `W${i+1}`)];
     labels[labels.length - 1] = "Current";
 
-    // your existing functions still work
-    const actual = generateRiskTimeline(order, totalWeeks);
-    const predicted = createPredictedRisk(actual);
+    // === FIXED: all risk data arrays aligned with weekDates length ===
+    const totalPoints = weekDates.length - 1;
+
+    const actual = generateRiskTimeline(order, totalPoints);
+    const predicted = createPredictedRisk(actual, totalPoints);
     const trend = polynomialTrend(actual);
 
     riskTimelineChart = new Chart(ctx, {
