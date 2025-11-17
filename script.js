@@ -905,74 +905,154 @@ let projectRiskDistributionChart = null;
 let orderProjectTimelineChart = null;
 
 // Improved Risk Assessment Function
-function calculateRiskAssessment(order) {
-    const today = new Date();
+function calculateRiskAssessment(order, simulatedDate = null) {
+    const today = simulatedDate ? new Date(simulatedDate) : new Date();
     const targetDate = new Date(order.target_date);
     const orderDate = new Date(order.order_date);
-    
-    // Calculate days until due and days since order
-    const daysUntilDue = Math.ceil((targetDate - today) / (1000 * 60 * 60 * 24));
-    const daysSinceOrder = Math.ceil((today - orderDate) / (1000 * 60 * 60 * 24));
-    const totalDaysAllocated = Math.ceil((targetDate - orderDate) / (1000 * 60 * 60 * 24));
-    
-    // Calculate time pressure (0-100 scale)
+
+    const daysUntilDue = Math.ceil((targetDate - today) / 86400000);
+    const daysSinceOrder = Math.ceil((today - orderDate) / 86400000);
+    const totalDaysAllocated = Math.max(1, Math.ceil((targetDate - orderDate) / 86400000));
+
     const timeUsedRatio = daysSinceOrder / totalDaysAllocated;
-    const timePressure = Math.max(0, Math.min(100, (timeUsedRatio - (order.progress / 100)) * 100));
-    
-    // Base risk from progress (inverse)
+    const timePressure = Math.max(0, Math.min(100, (timeUsedRatio - order.progress / 100) * 100));
+
     const progressRisk = 100 - order.progress;
-    
-    // Defect risk
-    const totalDefects = order.tracking.reduce((sum, process) => sum + process.defect_quantity, 0);
+
+    const totalDefects = order.tracking.reduce((s, t) => s + t.defect_quantity, 0);
     const defectRate = (totalDefects / order.quantity) * 100;
-    const defectRisk = Math.min(100, defectRate * 10); // Amplify defect impact
-    
-    // Bottleneck risk - check if any process is significantly behind
+    const defectRisk = Math.min(100, defectRate * 10);
+
     let bottleneckRisk = 0;
-    const completedProcesses = order.tracking.filter(p => p.quantity_completed === order.quantity).length;
-    const expectedProcesses = Math.ceil((order.progress / 100) * order.tracking.length);
+    const completedProcesses = order.tracking.filter(t => t.quantity_completed === order.quantity).length;
+    const expectedProcesses = Math.ceil(order.progress / 100 * order.tracking.length);
+
     if (completedProcesses < expectedProcesses - 2) {
         bottleneckRisk = 50;
     }
-    
-    // Priority risk
-    const priorityRisk = order.priority === 'high' ? 15 : order.priority === 'medium' ? 5 : 0;
-    
-    // Combine all risk factors with weights
-    const finalRiskScore = Math.min(100, 
-        (progressRisk * 0.35) + 
-        (timePressure * 0.25) + 
-        (defectRisk * 0.2) +
-        (bottleneckRisk * 0.1) +
-        (priorityRisk * 0.1)
+
+    const priorityRisk = order.priority === "high" ? 15 : order.priority === "medium" ? 5 : 0;
+
+    const finalScore = Math.min(100,
+        (progressRisk * 0.35) +
+        (timePressure * 0.25) +
+        (defectRisk * 0.20) +
+        (bottleneckRisk * 0.10) +
+        (priorityRisk * 0.10)
     );
-    
-    // Determine risk level
-    let riskLevel;
-    if (finalRiskScore >= 80 || daysUntilDue < 0) {
-        riskLevel = 'CRITICAL';
-    } else if (finalRiskScore >= 60) {
-        riskLevel = 'HIGH';
-    } else if (finalRiskScore >= 40) {
-        riskLevel = 'MEDIUM';
-    } else if (finalRiskScore >= 20) {
-        riskLevel = 'LOW';
-    } else {
-        riskLevel = 'VERY LOW';
-    }
-    
-    // Special case: New orders should not be critical immediately
-    if (daysSinceOrder < 2 && order.progress === 0) {
-        riskLevel = 'LOW';
-    }
-    
+
+    let riskLevel =
+        finalScore >= 80 || daysUntilDue < 0 ? "CRITICAL" :
+        finalScore >= 60 ? "HIGH" :
+        finalScore >= 40 ? "MEDIUM" :
+        finalScore >= 20 ? "LOW" :
+        "VERY LOW";
+
     return {
+        risk_score: Math.round(finalScore),
         risk_level: riskLevel,
-        risk_score: Math.round(finalRiskScore),
-        days_until_due: daysUntilDue,
         time_pressure: Math.round(timePressure),
-        defect_rate: defectRate
+        defect_rate: defectRate,
+        days_until_due: daysUntilDue
     };
+}
+
+// ----- DATE UTILITIES -----
+function getEarliestDate(order) {
+    const trackingDates = order.tracking
+        .map(t => t.start_time ? new Date(t.start_time) : null)
+        .filter(Boolean);
+
+    if (trackingDates.length > 0) {
+        return new Date(Math.min(...trackingDates));
+    }
+
+    return new Date(order.order_date);
+}
+
+function polynomialTrend(values) {
+    const n = values.length;
+    const x = [...Array(n).keys()];
+    const y = values;
+
+    const sumX = x.reduce((a,b)=>a+b,0);
+    const sumX2 = x.reduce((a,b)=>a+b*b,0);
+    const sumX3 = x.reduce((a,b)=>a+b*b*b,0);
+    const sumX4 = x.reduce((a,b)=>a+b*b*b*b,0);
+    const sumY = y.reduce((a,b)=>a+b,0);
+    const sumXY = x.reduce((a,b,i)=>a+b*y[i],0);
+    const sumX2Y = x.reduce((a,b,i)=>a+b*b*y[i],0);
+
+    const m = [
+        [n,  sumX,  sumX2],
+        [sumX, sumX2, sumX3],
+        [sumX2, sumX3, sumX4]
+    ];
+    const v = [sumY, sumXY, sumX2Y];
+
+    function solve(matrix, vector) {
+        const a = JSON.parse(JSON.stringify(matrix));
+        const b = [...vector];
+
+        for (let i = 0; i < 3; i++) {
+            let maxRow = i;
+            for (let j = i + 1; j < 3; j++)
+                if (Math.abs(a[j][i]) > Math.abs(a[maxRow][i])) maxRow = j;
+
+            [a[i], a[maxRow]] = [a[maxRow], a[i]];
+            [b[i], b[maxRow]] = [b[maxRow], b[i]];
+
+            for (let j = i + 1; j < 3; j++) {
+                const ratio = a[j][i] / a[i][i];
+                for (let k = i; k < 3; k++) a[j][k] -= ratio * a[i][k];
+                b[j] -= ratio * b[i];
+            }
+        }
+
+        const sol = Array(3).fill(0);
+        for (let i = 2; i >= 0; i--) {
+            sol[i] = b[i] / a[i][i];
+            for (let j = 0; j < i; j++)
+                b[j] -= a[j][i] * sol[i];
+        }
+        return sol;
+    }
+
+    const [a, b, c] = solve(m, v);
+
+    return x.map(i => a + b*i + c*i*i);
+}
+
+function createPredictedRisk(values) {
+    const last = values[values.length - 1];
+    const velocity = (values[values.length - 1] - values[0]) / values.length;
+    const predicted = last + velocity * 2;
+    return [...values.slice(0,5), Math.min(100, Math.max(0, predicted))];
+}
+
+function addDays(date, days) {
+    const d = new Date(date);
+    d.setDate(d.getDate() + days);
+    return d;
+}
+
+function calculateRiskAtDate(order, date) {
+    return calculateRiskAssessment(order, date).risk_score;
+}
+
+function generateRiskTimeline(order) {
+    const start = getEarliestDate(order);
+
+    const timelineDates = [
+        start,
+        addDays(start, 7),
+        addDays(start, 14),
+        addDays(start, 21),
+        addDays(start, 28),
+        new Date()
+    ];
+
+    return timelineDates.map(d => calculateRiskAtDate(order, d));
 }
 
 // Project Risk Assessment Function
@@ -2349,39 +2429,40 @@ function renderProcessEfficiencyChart(efficiencyData) {
 }
 
 function renderRiskTimelineChart(order) {
-    const ctx = document.getElementById('riskTimelineChart').getContext('2d');
-    
-    if (riskTimelineChart) {
-        riskTimelineChart.destroy();
-    }
-    
+    const actual = generateRiskTimeline(order);
+    const predicted = createPredictedRisk(actual);
+    const trend = polynomialTrend(actual);
+
+    if (riskTimelineChart) riskTimelineChart.destroy();
+
+    const ctx = document.getElementById("riskTimelineChart").getContext("2d");
+
     riskTimelineChart = new Chart(ctx, {
-        type: 'line',
+        type: "line",
         data: {
-            labels: ['Start', 'Week 1', 'Week 2', 'Week 3', 'Current'],
-            datasets: [{
-                label: 'Risk Level',
-                data: [20, 25, 45, 65, order.risk_score],
-                borderColor: '#f72585',
-                backgroundColor: 'rgba(247, 37, 133, 0.1)',
-                tension: 0.3,
-                fill: true
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    min: 0,
-                    max: 100,
-                    ticks: {
-                        callback: function(value) {
-                            return value + '%';
-                        }
-                    }
+            labels: ["Start", "W1", "W2", "W3", "W4", "Current"],
+            datasets: [
+                {
+                    label: "Actual Risk",
+                    data: actual,
+                    borderColor: "#e91e63",
+                    fill: true
+                },
+                {
+                    label: "Predicted Risk",
+                    data: predicted,
+                    borderDash: [6,4],
+                    borderColor: "#2196f3",
+                    fill: false
+                },
+                {
+                    label: "Trendline",
+                    data: trend,
+                    borderColor: "#4caf50",
+                    borderWidth: 1.5,
+                    fill: false
                 }
-            }
+            ]
         }
     });
 }
