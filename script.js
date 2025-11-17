@@ -980,19 +980,44 @@ function calculateRiskAtDate(order, date) {
     return calculateRiskAssessment(order, date).risk_score;
 }
 
-function generateRiskTimeline(order) {
-    const start = getEarliestDate(order);
+function generateRiskTimeline(order, totalWeeks) {
+    if (!order.order_date) return [];
 
-    const timelineDates = [
-        start,
-        addDays(start, 7),
-        addDays(start, 14),
-        addDays(start, 21),
-        addDays(start, 28),
-        new Date()
-    ];
+    const start = new Date(order.order_date);
 
-    return timelineDates.map(date => calculateRiskAtDate(order, date));
+    const points = [];
+    for (let w = 0; w <= totalWeeks; w++) {
+        const date = getDateAfterWeeks(start, w);
+
+        // Calculate risk based on tracking events before this date
+        const relevant = order.tracking.filter(
+            t => t.last_updated && new Date(t.last_updated) <= date
+        );
+
+        let risk = 0;
+        relevant.forEach(r => {
+            risk += r.defect_quantity * 5;
+            if (r.issues && r.issues.length > 1) risk += 3;
+        });
+
+        risk = Math.min(100, Math.round(risk));
+        points.push(risk);
+    }
+
+    return points;
+}
+
+function getWeeksBetween(startDate, endDate) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+    return Math.max(1, Math.ceil(days / 7));
+}
+
+function getDateAfterWeeks(startDate, weekNumber) {
+    const d = new Date(startDate);
+    d.setDate(d.getDate() + (weekNumber * 7));
+    return d;
 }
 
 function polynomialTrend(values) {
@@ -2335,17 +2360,30 @@ function generateCombinedRecommendations(avgRiskScore, bottleneckAnalysis, proje
 // Chart rendering functions
 function renderProgressChart(order) {
     const ctx = document.getElementById('progressChart').getContext('2d');
-    
+
     if (progressChart) progressChart.destroy();
+
+    if (!order.order_date || !order.target_date) return;
+
+    const start = new Date(order.order_date);
+    const end = new Date(order.target_date);
+    const totalWeeks = getWeeksBetween(start, end);
+
+    const labels = [];
+    for (let i = 0; i <= totalWeeks; i++) {
+        labels.push("W" + i);
+    }
+    labels[0] = "Start";
 
     const actualProgress = generateProgressTimeline(order);
 
-    const plannedProgress = [25, 50, 75, 100];
+    // Planned: perfect linear plan
+    const plannedProgress = labels.map((_, i) => Math.min(100, Math.round((i / totalWeeks) * 100)));
 
     progressChart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: ['Start', 'W1', 'W2', 'W3', 'W4'],
+            labels,
             datasets: [
                 {
                     label: 'Actual Progress',
@@ -2372,9 +2410,7 @@ function renderProgressChart(order) {
                 y: {
                     min: 0,
                     max: 100,
-                    ticks: {
-                        callback: v => v + '%'
-                    }
+                    ticks: { callback: v => v + '%' }
                 }
             }
         }
@@ -2423,18 +2459,32 @@ function renderProcessEfficiencyChart(efficiencyData) {
 }
 
 function renderRiskTimelineChart(order) {
-    const actual = generateRiskTimeline(order);
-    const predicted = createPredictedRisk(actual);
-    const trend = polynomialTrend(actual);
+    const ctx = document.getElementById("riskTimelineChart").getContext("2d");
 
     if (riskTimelineChart) riskTimelineChart.destroy();
 
-    const ctx = document.getElementById("riskTimelineChart").getContext("2d");
+    if (!order.order_date || !order.target_date) return;
+
+    const start = new Date(order.order_date);
+    const end = new Date(order.target_date);
+    const totalWeeks = getWeeksBetween(start, end);
+
+    const labels = [];
+    for (let i = 0; i <= totalWeeks; i++) {
+        labels.push("W" + i);
+    }
+    labels[0] = "Start";
+    labels[labels.length - 1] = "Current";
+
+    // your existing functions still work
+    const actual = generateRiskTimeline(order, totalWeeks);
+    const predicted = createPredictedRisk(actual);
+    const trend = polynomialTrend(actual);
 
     riskTimelineChart = new Chart(ctx, {
         type: "line",
         data: {
-            labels: ["Start", "W1", "W2", "W3", "W4", "Current"],
+            labels: labels,
             datasets: [
                 {
                     label: "Actual Risk",
@@ -3041,19 +3091,22 @@ function renderOrderProjectTimelineChart() {
 }
 
 function generateProgressTimeline(order) {
-    const start = getEarliestDate(order);
+    if (!order.order_date || !order.target_date) return [];
 
-    const timelineDates = [
-        start,
-        addDays(start, 7),
-        addDays(start, 14),
-        addDays(start, 21),
-        addDays(start, 28)
-    ];
+    const start = new Date(order.order_date);
+    const end = new Date(order.target_date);
+
+    const totalWeeks = getWeeksBetween(start, end);
+
+    const timelineDates = [];
+    for (let w = 0; w <= totalWeeks; w++) {
+        timelineDates.push(getDateAfterWeeks(start, w));
+    }
 
     return timelineDates.map(d => {
-        // Calculate progress by checking how many processes finished before this date
-        const completed = order.tracking.filter(t => t.end_time && new Date(t.end_time) <= d);
+        const completed = order.tracking.filter(
+            t => t.end_time && new Date(t.end_time) <= d
+        );
         const percent = (completed.length / order.tracking.length) * 100;
         return Math.round(percent);
     });
