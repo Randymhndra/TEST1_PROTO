@@ -970,6 +970,31 @@ function getEarliestDate(order) {
     return new Date(order.order_date);
 }
 
+function addDays(date, days) {
+    const d = new Date(date);
+    d.setDate(d.getDate() + days);
+    return d;
+}
+
+function calculateRiskAtDate(order, date) {
+    return calculateRiskAssessment(order, date).risk_score;
+}
+
+function generateRiskTimeline(order) {
+    const start = getEarliestDate(order);
+
+    const timelineDates = [
+        start,
+        addDays(start, 7),
+        addDays(start, 14),
+        addDays(start, 21),
+        addDays(start, 28),
+        new Date()
+    ];
+
+    return timelineDates.map(date => calculateRiskAtDate(order, date));
+}
+
 function polynomialTrend(values) {
     const n = values.length;
     const x = [...Array(n).keys()];
@@ -984,7 +1009,7 @@ function polynomialTrend(values) {
     const sumX2Y = x.reduce((a,b,i)=>a+b*b*y[i],0);
 
     const m = [
-        [n,  sumX,  sumX2],
+        [n, sumX, sumX2],
         [sumX, sumX2, sumX3],
         [sumX2, sumX3, sumX4]
     ];
@@ -1020,39 +1045,14 @@ function polynomialTrend(values) {
 
     const [a, b, c] = solve(m, v);
 
-    return x.map(i => a + b*i + c*i*i);
+    return x.map(i => a + b * i + c * i * i);
 }
 
 function createPredictedRisk(values) {
     const last = values[values.length - 1];
     const velocity = (values[values.length - 1] - values[0]) / values.length;
     const predicted = last + velocity * 2;
-    return [...values.slice(0,5), Math.min(100, Math.max(0, predicted))];
-}
-
-function addDays(date, days) {
-    const d = new Date(date);
-    d.setDate(d.getDate() + days);
-    return d;
-}
-
-function calculateRiskAtDate(order, date) {
-    return calculateRiskAssessment(order, date).risk_score;
-}
-
-function generateRiskTimeline(order) {
-    const start = getEarliestDate(order);
-
-    const timelineDates = [
-        start,
-        addDays(start, 7),
-        addDays(start, 14),
-        addDays(start, 21),
-        addDays(start, 28),
-        new Date()
-    ];
-
-    return timelineDates.map(d => calculateRiskAtDate(order, d));
+    return [...values.slice(0, 5), Math.min(100, Math.max(0, predicted))];
 }
 
 // Project Risk Assessment Function
@@ -2336,50 +2336,44 @@ function generateCombinedRecommendations(avgRiskScore, bottleneckAnalysis, proje
 function renderProgressChart(order) {
     const ctx = document.getElementById('progressChart').getContext('2d');
     
-    if (progressChart) {
-        progressChart.destroy();
-    }
-    
+    if (progressChart) progressChart.destroy();
+
+    const actualProgress = generateProgressTimeline(order);
+
+    const plannedProgress = [25, 50, 75, 100];
+
     progressChart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
-            datasets: [{
-                label: 'Actual Progress',
-                data: [10, 25, 40, order.progress],
-                borderColor: '#4361ee',
-                backgroundColor: 'rgba(67, 97, 238, 0.1)',
-                tension: 0.3,
-                fill: true
-            }, {
-                label: 'Planned Progress',
-                data: [25, 50, 75, 100],
-                borderColor: '#4cc9f0',
-                borderDash: [5, 5],
-                backgroundColor: 'transparent',
-                tension: 0.3
-            }]
+            labels: ['Start', 'W1', 'W2', 'W3', 'W4'],
+            datasets: [
+                {
+                    label: 'Actual Progress',
+                    data: actualProgress,
+                    borderColor: '#4361ee',
+                    backgroundColor: 'rgba(67, 97, 238, 0.1)',
+                    tension: 0.35,
+                    fill: true
+                },
+                {
+                    label: 'Planned Progress',
+                    data: plannedProgress,
+                    borderColor: '#4cc9f0',
+                    borderDash: [5,5],
+                    fill: false,
+                    tension: 0.25
+                }
+            ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                title: {
-                    display: false
-                },
-                tooltip: {
-                    mode: 'index',
-                    intersect: false
-                }
-            },
             scales: {
                 y: {
                     min: 0,
                     max: 100,
                     ticks: {
-                        callback: function(value) {
-                            return value + '%';
-                        }
+                        callback: v => v + '%'
                     }
                 }
             }
@@ -2446,21 +2440,25 @@ function renderRiskTimelineChart(order) {
                     label: "Actual Risk",
                     data: actual,
                     borderColor: "#e91e63",
-                    fill: true
+                    backgroundColor: "rgba(233, 30, 99, 0.2)",
+                    fill: true,
+                    tension: 0.3
                 },
                 {
                     label: "Predicted Risk",
                     data: predicted,
-                    borderDash: [6,4],
                     borderColor: "#2196f3",
-                    fill: false
+                    borderDash: [6,4],
+                    fill: false,
+                    tension: 0.3
                 },
                 {
                     label: "Trendline",
                     data: trend,
                     borderColor: "#4caf50",
                     borderWidth: 1.5,
-                    fill: false
+                    fill: false,
+                    tension: 0
                 }
             ]
         }
@@ -3039,6 +3037,25 @@ function renderOrderProjectTimelineChart() {
                 }
             }
         }
+    });
+}
+
+function generateProgressTimeline(order) {
+    const start = getEarliestDate(order);
+
+    const timelineDates = [
+        start,
+        addDays(start, 7),
+        addDays(start, 14),
+        addDays(start, 21),
+        addDays(start, 28)
+    ];
+
+    return timelineDates.map(d => {
+        // Calculate progress by checking how many processes finished before this date
+        const completed = order.tracking.filter(t => t.end_time && new Date(t.end_time) <= d);
+        const percent = (completed.length / order.tracking.length) * 100;
+        return Math.round(percent);
     });
 }
 
