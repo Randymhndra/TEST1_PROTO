@@ -29,7 +29,7 @@ body {
 }
 
 header {
-    background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+    background: var(--primary-color);
     color: white;
     padding: 0 24px;
     display: flex;
