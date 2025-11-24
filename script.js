@@ -130,13 +130,19 @@ const defaultEfficiencySettings = {
 
 // Login credentials
 async function performLogin() {
-    const username = document.getElementById("login-username").value.trim();
+    let username = document.getElementById("login-username").value;
+
+    // Remove whitespace anywhere
+    username = username.replace(/\s+/g, "");
+
+    // Auto-correct capitalization (Andi, Arif, Anto)
+    username = username.charAt(0).toUpperCase() + username.slice(1);
+
     const password = document.getElementById("login-password").value.trim();
 
     // Hash salted username
     const userKey = await sha256("JC-USER-" + username);
 
-    // Try override first
     const override = localStorage.getItem("jc_user_override_" + userKey);
     const storedHash = override || USERS[userKey];
 
@@ -145,15 +151,13 @@ async function performLogin() {
         return;
     }
 
-    // Hash entered password
     const passHash = await sha256(password);
 
     if (passHash === storedHash) {
         localStorage.setItem("jc_logged_in", "yes");
-        localStorage.setItem("jc_user", userKey); // store hashed username
+        localStorage.setItem("jc_user", userKey);
         document.getElementById("login-screen").style.display = "none";
         document.getElementById("logout-btn").style.display = "inline-flex";
-        showLoggedInUser();
     } else {
         document.getElementById("login-error").style.display = "block";
     }
@@ -253,9 +257,9 @@ async function sha256(text) {
 }
 
 const USERS = {
-    "b4a1fa41bb7d978ad59c3bc4454d27fa94c154f83ea2a3397cd432a3e55b423d": "c7dff95962da827005fb82ba9dc650cc9da76f65a0b61364213df7b99c1dbf7c", // Andi
-    "ce86cd96c0a8d779ae87f6907c8c3515111516bddfeeee44374728447d93eb07": "7c6abfdbf617b827293fddc3f963ff6f139204adc3d53bc9e035e13c2399d4fd", // Arif
-    "b5e77cab952c6b7336244121a85499385c1b405464d09fd318ad385784364d00": "fbd743a27fc927e4c4a5ec99c6167532a17c21b7097500d87e8b234a17c4d6ec"  // Anto
+    "b4a1fa41bb7d978ad59c3bc4454d27fa94c154f83ea2a3397cd432a3e55b423d": "c7dff95962da827005fb82ba9dc650cc9da76f65a0b61364213df7b99c1dbf7c",
+    "ce86cd96c0a8d779ae87f6907c8c3515111516bddfeeee44374728447d93eb07": "7c6abfdbf617b827293fddc3f963ff6f139204adc3d53bc9e035e13c2399d4fd",
+    "b5e77cab952c6b7336244121a85499385c1b405464d09fd318ad385784364d00": "fbd743a27fc927e4c4a5ec99c6167532a17c21b7097500d87e8b234a17c4d6ec"
 };
 
 // Load efficiency settings from localStorage
