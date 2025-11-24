@@ -129,17 +129,31 @@ const defaultEfficiencySettings = {
 };
 
 // Login credentials
-const VALID_USER = "admin";
-const VALID_PASS = "1234";
+async function performLogin() {
+    const username = document.getElementById("login-username").value.trim();
+    const password = document.getElementById("login-password").value.trim();
 
-function performLogin() {
-    const u = document.getElementById("login-username").value;
-    const p = document.getElementById("login-password").value;
+    // Hash salted username
+    const userKey = await sha256("JC-USER-" + username);
 
-    if (u === VALID_USER && p === VALID_PASS) {
+    // Try override first
+    const override = localStorage.getItem("jc_user_override_" + userKey);
+    const storedHash = override || USERS[userKey];
+
+    if (!storedHash) {
+        document.getElementById("login-error").style.display = "block";
+        return;
+    }
+
+    // Hash entered password
+    const passHash = await sha256(password);
+
+    if (passHash === storedHash) {
         localStorage.setItem("jc_logged_in", "yes");
+        localStorage.setItem("jc_user", userKey); // store hashed username
         document.getElementById("login-screen").style.display = "none";
         document.getElementById("logout-btn").style.display = "inline-flex";
+        showLoggedInUser();
     } else {
         document.getElementById("login-error").style.display = "block";
     }
@@ -147,22 +161,102 @@ function performLogin() {
 
 function performLogout() {
     localStorage.removeItem("jc_logged_in");
+    localStorage.removeItem("jc_user");
     location.reload();
 }
 
 function checkLoginState() {
     const logged = localStorage.getItem("jc_logged_in");
+    const userKey = localStorage.getItem("jc_user");
 
-    if (logged === "yes") {
+    if (logged === "yes" && userKey) {
         document.getElementById("login-screen").style.display = "none";
         document.getElementById("logout-btn").style.display = "inline-flex";
+
+        if (typeof showLoggedInUser === "function") {
+            showLoggedInUser();
+        }
     } else {
         document.getElementById("login-screen").style.display = "flex";
         document.getElementById("logout-btn").style.display = "none";
     }
 }
 
+function showLoggedInUser() {
+    const userKey = localStorage.getItem("jc_user");
+    if (!userKey) return;
+
+    // You can show only hashed username or hide it completely.
+    const display = document.getElementById("user-display");
+    if (display) {
+        display.textContent = "User Active";
+    }
+}
+
 window.addEventListener("DOMContentLoaded", checkLoginState);
+
+// Change Password Logic
+function openChangePassword() {
+    document.getElementById("changePasswordModal").classList.add("active");
+}
+function closeChangePassword() {
+    document.getElementById("changePasswordModal").classList.remove("active");
+    document.getElementById("cp-error").style.display = "none";
+    document.getElementById("cp-success").style.display = "none";
+}
+
+async function changePassword() {
+    const current = document.getElementById("cp-current").value;
+    const newPass = document.getElementById("cp-new").value;
+    const confirm = document.getElementById("cp-confirm").value;
+
+    const errorBox = document.getElementById("cp-error");
+    const successBox = document.getElementById("cp-success");
+
+    errorBox.style.display = "none";
+    successBox.style.display = "none";
+
+    const userKey = localStorage.getItem("jc_user");
+
+    const override = localStorage.getItem("jc_user_override_" + userKey);
+    const storedHash = override || USERS[userKey];
+
+    const currentHash = await sha256(current);
+
+    if (currentHash !== storedHash) {
+        errorBox.innerText = "Current password is incorrect.";
+        errorBox.style.display = "block";
+        return;
+    }
+
+    if (newPass !== confirm) {
+        errorBox.innerText = "New password does not match.";
+        errorBox.style.display = "block";
+        return;
+    }
+
+    const newHash = await sha256(newPass);
+
+    localStorage.setItem("jc_user_override_" + userKey, newHash);
+
+    successBox.innerText = "Password updated successfully.";
+    successBox.style.display = "block";
+}
+
+// Encrypt password
+async function sha256(text) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(text);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+const USERS = {
+    "b4a1fa41bb7d978ad59c3bc4454d27fa94c154f83ea2a3397cd432a3e55b423d": "c7dff95962da827005fb82ba9dc650cc9da76f65a0b61364213df7b99c1dbf7c", // Andi
+    "ce86cd96c0a8d779ae87f6907c8c3515111516bddfeeee44374728447d93eb07": "7c6abfdbf617b827293fddc3f963ff6f139204adc3d53bc9e035e13c2399d4fd", // Arif
+    "b5e77cab952c6b7336244121a85499385c1b405464d09fd318ad385784364d00": "fbd743a27fc927e4c4a5ec99c6167532a17c21b7097500d87e8b234a17c4d6ec"  // Anto
+};
 
 // Load efficiency settings from localStorage
 function loadEfficiencySettings() {
