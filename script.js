@@ -128,6 +128,42 @@ const defaultEfficiencySettings = {
     }
 };
 
+// Login credentials
+const VALID_USER = "admin";
+const VALID_PASS = "1234";
+
+function performLogin() {
+    const u = document.getElementById("login-username").value;
+    const p = document.getElementById("login-password").value;
+
+    if (u === VALID_USER && p === VALID_PASS) {
+        localStorage.setItem("jc_logged_in", "yes");
+        document.getElementById("login-screen").style.display = "none";
+        document.getElementById("logout-btn").style.display = "inline-flex";
+    } else {
+        document.getElementById("login-error").style.display = "block";
+    }
+}
+
+function performLogout() {
+    localStorage.removeItem("jc_logged_in");
+    location.reload();
+}
+
+function checkLoginState() {
+    const logged = localStorage.getItem("jc_logged_in");
+
+    if (logged === "yes") {
+        document.getElementById("login-screen").style.display = "none";
+        document.getElementById("logout-btn").style.display = "inline-flex";
+    } else {
+        document.getElementById("login-screen").style.display = "flex";
+        document.getElementById("logout-btn").style.display = "none";
+    }
+}
+
+window.addEventListener("DOMContentLoaded", checkLoginState);
+
 // Load efficiency settings from localStorage
 function loadEfficiencySettings() {
     const saved = localStorage.getItem('processEfficiencySettings');

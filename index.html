@@ -10,7 +10,30 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <!-- Header -->
+    <div id="login-screen" class="modal active" style="display:flex; background:white; z-index:2000; justify-content:center; align-items:center;">
+        <div style="background:white; padding:40px; border-radius:12px; width:350px; box-shadow:0 4px 12px rgba(0,0,0,0.15);">
+            <h2 style="text-align:center; margin-bottom:20px;">Login</h2>
+
+            <div class="form-group">
+                <label>Username</label>
+                <input id="login-username" type="text" />
+            </div>
+
+            <div class="form-group">
+                <label>Password</label>
+                <input id="login-password" type="password" />
+            </div>
+
+            <button class="btn btn-primary" onclick="performLogin()" style="width:100%; margin-top:10px;">
+                Login
+            </button>
+
+            <div id="login-error" style="color:red; margin-top:12px; text-align:center; display:none;">
+                Invalid username or password
+            </div>
+        </div>
+    </div>
+
     <header>
         <div class="logo-container">
             <div class="logo-main">
@@ -44,15 +67,15 @@
             <a class="nav-link" onclick="openExportModal()">
                 <i class="fas fa-file-export"></i> Export
             </a>
+            <a class="nav-link" id="logout-btn" style="display:none;" onclick="performLogout()">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </a>
         </nav>
     </header>
 
     <div class="container">
-        <!-- Dashboard Tab -->
         <div id="dashboard" class="tab-content active">
             <h2><i class="fas fa-tachometer-alt"></i> Production Dashboard</h2>
-
-            <!-- KPI Cards -->
             <div class="dashboard-grid">
                 <div class="kpi-card success">
                     <div class="kpi-label">
@@ -84,10 +107,8 @@
                 </div>
             </div>
 
-            <!-- Bottleneck Alert -->
             <div id="bottleneck-alert" style="margin-bottom: 24px;"></div>
 
-            <!-- At-Risk Orders -->
             <div class="table-container" style="margin-bottom: 24px;">
                 <div style="padding: 20px; border-bottom: 1px solid var(--border-color);">
                     <h3><i class="fas fa-exclamation-circle"></i> Orders at Risk</h3>
@@ -109,7 +130,6 @@
                 </table>
             </div>
 
-            <!-- KPI Metrics -->
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
                 <div class="kpi-card">
                     <div class="kpi-label">
@@ -135,7 +155,6 @@
             </div>
         </div>
 
-        <!-- Orders Tab -->
         <div id="orders" class="tab-content">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
                 <h2><i class="fas fa-clipboard-list"></i> Orders Management</h2>
@@ -168,7 +187,6 @@
             </div>
         </div>
 
-        <!-- Projects Tab -->
         <div id="projects" class="tab-content">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
                 <h2><i class="fas fa-project-diagram"></i> Project Management</h2>
@@ -176,13 +194,10 @@
                     <i class="fas fa-plus"></i> New Project
                 </button>
             </div>
-
             <div id="projects-container">
-                <!-- Projects will be loaded here -->
             </div>
         </div>
 
-        <!-- Tracking Tab -->
         <div id="tracking" class="tab-content">
             <h2><i class="fas fa-map-marker-alt"></i> Production Tracking</h2>
 
@@ -199,14 +214,12 @@
                         <div class="process-tracker">
                             <h3>Production Process</h3>
                             <div class="process-steps" id="process-steps">
-                                <!-- Process steps will be dynamically generated here -->
                             </div>
                         </div>
 
                         <div class="quantity-tracking">
                             <h3>Quantity Tracking</h3>
                             <div id="quantity-tracking-table">
-                                <!-- Quantity tracking table will be generated here -->
                             </div>
                         </div>
 
@@ -217,7 +230,6 @@
                                     <div class="form-group">
                                         <label>Process</label>
                                         <select id="track-process-select" name="process" required>
-                                            <!-- Process options will be dynamically generated -->
                                         </select>
                                     </div>
                                     <div class="form-group">
@@ -263,7 +275,6 @@
             </div>
         </div>
 
-        <!-- DSS Analysis Tab -->
         <div id="dss" class="tab-content">
             <h2><i class="fas fa-chart-line"></i> Decision Support System Analysis</h2>
 
@@ -273,7 +284,6 @@
                 <div class="dss-tab" onclick="showDssTab('combined')">Combined Analysis</div>
             </div>
 
-            <!-- Single Order Analysis -->
             <div id="dss-single" class="dss-tab-content active">
                 <div class="table-container" style="margin-bottom: 24px;">
                     <div style="padding: 20px;">
@@ -289,7 +299,6 @@
                 <div id="dss-results"></div>
             </div>
 
-            <!-- Project Analysis -->
             <div id="dss-project" class="dss-tab-content">
                 <div class="table-container" style="margin-bottom: 24px;">
                     <div style="padding: 20px;">
@@ -305,7 +314,6 @@
                 <div id="dss-project-results"></div>
             </div>
 
-            <!-- Combined Analysis -->
             <div id="dss-combined" class="dss-tab-content">
                 <div class="table-container" style="margin-bottom: 24px;">
                     <div style="padding: 20px;">
@@ -321,7 +329,6 @@
             </div>
         </div>
 
-        <!-- Efficiency Tab -->
         <div id="efficiency" class="tab-content">
             <h2><i class="fas fa-cogs"></i> Process Efficiency Settings</h2>
             <p style="margin-bottom: 24px; color: #6c757d;">
@@ -329,7 +336,6 @@
             </p>
 
             <div class="efficiency-grid" id="efficiency-settings">
-                <!-- Efficiency settings will be loaded here -->
             </div>
 
             <div style="display: flex; gap: 12px; margin-top: 24px;">
@@ -343,7 +349,6 @@
         </div>
     </div>
 
-    <!-- Footer -->
     <footer>
         <div class="footer-content">
             <div class="footer-logo">
@@ -357,7 +362,6 @@
         </div>
     </footer>
 
-    <!-- Order Modal -->
     <div id="orderModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -453,7 +457,6 @@
         </div>
     </div>
 
-    <!-- Project Modal -->
     <div id="projectModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -511,7 +514,6 @@
         </div>
     </div>
 
-    <!-- Logo Modal -->
     <div id="logoModal" class="modal">
         <div class="modal-content" style="max-width: 600px;">
             <div class="modal-header">
@@ -583,7 +585,6 @@
         </div>
     </div>
 
-    <!-- Export Modal -->
     <div id="exportModal" class="modal">
         <div class="modal-content" style="max-width: 600px;">
             <div class="modal-header">
@@ -635,7 +636,6 @@
         </div>
     </div>
 
-    <!-- Alert Messages -->
     <div id="alert-container" style="position: fixed; top: 80px; right: 24px; z-index: 999; max-width: 400px;"></div>
     <script src="script.js" defer></script>
     <script src="vercel.js" defer></script>

@@ -1,5 +1,12 @@
-// === PRIMARY APP LOADER ===
-window.addEventListener("DOMContentLoaded", loadAndInitializeApp);
+// Primary App Loader Wait for Login State
+window.addEventListener("DOMContentLoaded", () => {
+    checkLoginState();
+
+    const logged = localStorage.getItem("jc_logged_in");
+    if (logged === "yes") {
+        loadAndInitializeApp();
+    }
+});
 
 /**
  * Fetches, normalizes, and loads all application data.
