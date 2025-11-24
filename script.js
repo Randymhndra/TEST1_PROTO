@@ -1,6 +1,6 @@
 const API_URL = '/api';
 
-// Define production processes - sesuai dengan yang sudah ditentukan
+// Define production processes
 const productionProcesses = [
     { id: 'warehouse_in', name: 'Gudang Masuk', icon: 'fa-box' },
     { id: 'sanding', name: 'Amplas', icon: 'fa-sandpaper' },
@@ -14,13 +14,13 @@ const productionProcesses = [
     { id: 'warehouse_out', name: 'Gudang Akhir', icon: 'fa-warehouse' }
 ];
 
-// Default efficiency settings for each process
+// Default efficiency settings
 const defaultEfficiencySettings = {
     warehouse_in: {
         name: 'Gudang Masuk',
-        targetTime: 2, // hours
-        targetQuality: 99, // percentage
-        targetOutput: 100, // percentage
+        targetTime: 2,
+        targetQuality: 99,
+        targetOutput: 100,
         criteria: [
             "Waktu bongkar muat maksimal 2 jam",
             "Akurasi data barang masuk 99%",
@@ -131,16 +131,9 @@ const defaultEfficiencySettings = {
 // Login credentials
 async function performLogin() {
     let username = document.getElementById("login-username").value;
-
-    // Remove whitespace anywhere
     username = username.replace(/\s+/g, "");
-
-    // Auto-correct capitalization (Andi, Arif, Anto)
     username = username.charAt(0).toUpperCase() + username.slice(1);
-
     const password = document.getElementById("login-password").value.trim();
-
-    // Hash salted username
     const userKey = await sha256("JC-USER-" + username);
 
     const override = localStorage.getItem("jc_user_override_" + userKey);
@@ -189,8 +182,6 @@ function checkLoginState() {
 function showLoggedInUser() {
     const userKey = localStorage.getItem("jc_user");
     if (!userKey) return;
-
-    // You can show only hashed username or hide it completely.
     const display = document.getElementById("user-display");
     if (display) {
         display.textContent = "User Active";
@@ -267,13 +258,14 @@ function loadEfficiencySettings() {
     const saved = localStorage.getItem('processEfficiencySettings');
     return saved ? JSON.parse(saved) : {...defaultEfficiencySettings};
 }
+
 // Save orders to MongoDB via backend API
 async function saveOrdersToDatabase() {
   try {
     const response = await fetch('/api?type=orders', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(orders) // Note: This will now refer to window.orders
+      body: JSON.stringify(orders)
     });
 
     if (!response.ok) {
@@ -308,11 +300,8 @@ async function saveEfficiencySettings() {
             criteria: defaultEfficiencySettings[process.id].criteria
         };
     });
-
-    // ✅ Save locally for instant use
     localStorage.setItem('processEfficiencySettings', JSON.stringify(settings));
 
-    // ✅ Also persist to MongoDB via backend API
     try {
     await fetch('/api?type=settings', {
         method: 'PUT',
@@ -397,12 +386,10 @@ function calculateProcessEfficiency(processId, actualTime, actualQuality, actual
     const setting = settings[processId];
     if (!setting) return 0;
     
-    // Simple weighted average calculation
     const timeEfficiency = Math.max(0, (setting.targetTime / actualTime) * 100);
     const qualityEfficiency = actualQuality;
     const outputEfficiency = actualOutput;
     
-    // Weighted average (time 40%, quality 40%, output 20%)
     const overallEfficiency = (timeEfficiency * 0.4) + (qualityEfficiency * 0.4) + (outputEfficiency * 0.2);
     
     return Math.min(100, overallEfficiency);
@@ -417,15 +404,9 @@ function updateEfficiencyCalculation(order) {
         if (tracking && tracking.start_time && tracking.end_time) {
             const start = new Date(tracking.start_time);
             const end = new Date(tracking.end_time);
-            const actualTime = (end - start) / (1000 * 60 * 60); // hours
-            
-            // Calculate quality (based on defect rate)
+            const actualTime = (end - start) / (1000 * 60 * 60);
             const quality = Math.max(0, 100 - ((tracking.defect_quantity / order.quantity) * 100));
-            
-            // Calculate output (based on completion rate)
             const output = (tracking.quantity_completed / order.quantity) * 100;
-            
-            // Calculate efficiency using the new function
             processEfficiency[process.id] = calculateProcessEfficiency(
                 process.id, 
                 actualTime, 
@@ -433,7 +414,6 @@ function updateEfficiencyCalculation(order) {
                 output
             );
         } else if (tracking && tracking.quantity_completed > 0) {
-            // If in progress but no end time, estimate efficiency
             processEfficiency[process.id] = 50;
         } else {
             processEfficiency[process.id] = 0;
@@ -449,7 +429,6 @@ let customLogoUrl = null;
 
 function openLogoModal() {
     document.getElementById('logoModal').classList.add('active');
-    // Reset selection
     document.querySelectorAll('.logo-option').forEach(option => {
         option.classList.remove('selected');
     });
@@ -472,7 +451,6 @@ function saveLogo() {
     const logoIcon = document.getElementById('logo-icon');
     
     if (customLogoUrl) {
-        // Use custom logo
         logoIcon.className = '';
         logoIcon.style.backgroundImage = `url(${customLogoUrl})`;
         logoIcon.style.backgroundSize = 'contain';
@@ -481,7 +459,6 @@ function saveLogo() {
         logoIcon.style.width = '32px';
         logoIcon.style.height = '32px';
     } else {
-        // Use predefined icon
         logoIcon.className = `fas fa-${selectedLogo}`;
         logoIcon.style = '';
     }
@@ -496,7 +473,7 @@ function saveLogo() {
     closeLogoModal();
 }
 
-// Handle custom logo upload
+// Handle custom logo
 document.getElementById('logo-upload').addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (file) {
@@ -509,7 +486,7 @@ document.getElementById('logo-upload').addEventListener('change', function(e) {
     }
 });
 
-// Load saved logo on page load
+// Load saved logo
 function loadSavedLogo() {
     const savedLogo = localStorage.getItem('selectedLogo');
     const savedCustomLogo = localStorage.getItem('customLogoUrl');
@@ -521,8 +498,6 @@ function loadSavedLogo() {
     if (savedCustomLogo) {
         customLogoUrl = savedCustomLogo;
     }
-    
-    // Apply the saved logo
     const logoIcon = document.getElementById('logo-icon');
     
     if (customLogoUrl) {
@@ -547,12 +522,10 @@ function openProjectModal(projectId = null) {
     const form = document.getElementById('project-form');
     
     if (projectId) {
-        // Edit mode
         title.textContent = 'Edit Project';
         submitButton.textContent = 'Update Project';
         submitButton.innerHTML = '<i class="fas fa-save"></i> Update Project';
         
-        // Load project data
         const project = projects.find(p => p.project_id === projectId);
         if (project) {
             document.getElementById('project-id').value = project.project_id;
@@ -566,20 +539,18 @@ function openProjectModal(projectId = null) {
             document.querySelector('textarea[name="notes"]').value = project.notes || '';
         }
     } else {
-        // Create mode
         title.textContent = 'Create New Project';
         submitButton.textContent = 'Create Project';
         submitButton.innerHTML = '<i class="fas fa-plus"></i> Create Project';
         form.reset();
+
         document.getElementById('project-id').value = '';
-        
-        // Set default dates (minimum 3 weeks duration)
         const today = new Date();
         const startDate = today.toISOString().split('T')[0];
         const endDate = new Date(today);
         endDate.setDate(endDate.getDate() + 21); // 3 weeks minimum
         const endDateStr = endDate.toISOString().split('T')[0];
-        
+
         document.querySelector('input[name="start_date"]').value = startDate;
         document.querySelector('input[name="end_date"]').value = endDateStr;
     }
@@ -591,14 +562,13 @@ function closeProjectModal() {
     document.getElementById('projectModal').classList.remove('active');
 }
 
-// Handle form submission for create and update project
+// Handle form submission
 document.getElementById('project-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData);
     const projectId = document.getElementById('project-id').value;
 
-    // Disable submit button
     const submitButton = document.getElementById('project-submit-button');
     submitButton.disabled = true;
     submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
@@ -606,14 +576,12 @@ document.getElementById('project-form').addEventListener('submit', async (e) => 
     try {
         let payload;
         if (projectId) {
-            // Editing: merge with existing data
             const existingProject = projects.find(p => p.project_id === projectId);
             payload = { ...existingProject, ...data, updated_at: new Date().toISOString() };
         } else {
-            // Creating: create new payload
             payload = {
                 ...data,
-                project_id: null, // API will generate
+                project_id: null,
                 orders: [],
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
@@ -658,7 +626,6 @@ async function deleteProject(projectId) {
 function loadProjects() {
     let html = '';
     
-    // Use window.projects and window.orders
     if (!window.projects || window.projects.length === 0) {
         html = '<div style="text-align: center; padding: 40px; color: #6c757d;">No projects found. Create your first project to get started.</div>';
     } else {
@@ -672,7 +639,6 @@ function loadProjects() {
             
             const progress = totalQuantity > 0 ? Math.round((completedQuantity / totalQuantity) * 100) : 0;
             
-            // Calculate project timeline progress
             const startDate = new Date(project.start_date);
             const endDate = new Date(project.end_date);
             const today = new Date();
@@ -762,12 +728,10 @@ function loadProjects() {
     document.getElementById('projects-container').innerHTML = html;
 }
 
-// Update project select options in forms
+// Update project select
 function updateProjectSelects() {
-    // Use window.projects
     const projectList = window.projects || [];
     
-    // Update order form project select
     const orderProjectSelect = document.getElementById('order-project-select');
     if (orderProjectSelect) {
         let html = '<option value="">-- No Project --</option>';
@@ -777,7 +741,6 @@ function updateProjectSelects() {
         orderProjectSelect.innerHTML = html;
     }
     
-    // Update DSS project select
     const dssProjectSelect = document.getElementById('dss-project-select');
     if (dssProjectSelect) {
         let html = '<option value="">-- Select Project --</option>';
@@ -850,7 +813,6 @@ function exportToExcel(type) {
 
 // Export projects data
 function exportProjectsData() {
-    // Use window.projects and window.orders
     return (window.projects || []).map(project => {
         const projectOrders = (window.orders || []).filter(o => o.project_id === project.project_id);
         const totalQuantity = projectOrders.reduce((sum, order) => sum + order.quantity, 0);
@@ -868,7 +830,7 @@ function exportProjectsData() {
             const H = order.package_height || 0;
             const qty = order.quantity || 0;
 
-            const volume = (L * W * H) / 1000000; // convert cm³ → m³
+            const volume = (L * W * H) / 1000000;
             const orderTotal = volume * qty;
 
             totalVolume += orderTotal;
@@ -903,7 +865,6 @@ function exportProjectsData() {
 
 // Export orders data
 function exportOrdersData() {
-    // Use window.orders and window.projects
     return (window.orders || []).map(order => {
         const project = (window.projects || []).find(p => p.project_id === order.project_id);
         return {
@@ -930,7 +891,6 @@ function exportOrdersData() {
 function exportTrackingData() {
     const trackingData = [];
     
-    // Use window.orders and window.projects
     (window.orders || []).forEach(order => {
         const project = (window.projects || []).find(p => p.project_id === order.project_id);
         order.tracking.forEach(track => {
@@ -977,7 +937,6 @@ function exportEfficiencyData() {
 
 // Export all data
 function exportAllData() {
-    // Use window.orders and window.projects
     const orderList = window.orders || [];
     const projectList = window.projects || [];
     
@@ -1017,14 +976,6 @@ function exportAllData() {
     ];
 }
 
-// *** DELETED VARIABLE DECLARATIONS ***
-// `let orders = [];` was removed.
-// `projects = [...]` sample data was removed.
-// All functions will now correctly use `window.orders` and `window.projects`
-// which are populated by vercel.js
-
-// Chart instances
-// ** FIXED: Added all missing chart variables **
 let progressChart = null;
 let processEfficiencyChart = null;
 let riskTimelineChart = null;
@@ -1091,7 +1042,7 @@ function calculateRiskAssessment(order, simulatedDate = null) {
     };
 }
 
-// ----- DATE UTILITIES -----
+// Date Utilities
 function getEarliestDate(order) {
     const trackingDates = order.tracking
         .map(t => t.start_time ? new Date(t.start_time) : null)
@@ -1203,7 +1154,6 @@ function calculateProjectRiskAssessment(project) {
         };
     }
     
-    // Calculate overall project metrics
     const totalQuantity = projectOrders.reduce((sum, order) => sum + order.quantity, 0);
     const completedQuantity = projectOrders.reduce((sum, order) => {
         const warehouseOut = order.tracking.find(t => t.process === 'warehouse_out');
@@ -1212,12 +1162,10 @@ function calculateProjectRiskAssessment(project) {
     
     const completionRate = totalQuantity > 0 ? (completedQuantity / totalQuantity) * 100 : 0;
     
-    // Calculate project timeline
     const today = new Date();
     const endDate = new Date(project.end_date);
     const daysUntilDue = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
     
-    // Calculate order risks
     const orderRisks = projectOrders.map(order => {
         const riskAssessment = calculateRiskAssessment(order);
         return {
@@ -1227,29 +1175,23 @@ function calculateProjectRiskAssessment(project) {
         };
     });
     
-    // Calculate average risk score across all orders
     const avgRiskScore = projectOrders.reduce((sum, order) => {
         const riskAssessment = calculateRiskAssessment(order);
         return sum + riskAssessment.risk_score;
     }, 0) / projectOrders.length;
     
-    // Adjust risk based on timeline and completion
     let timelineRisk = 0;
     if (daysUntilDue < 0) {
-        timelineRisk = 30; // Project is overdue
+        timelineRisk = 30;
     } else if (daysUntilDue < 7) {
-        timelineRisk = 20; // Project due soon
+        timelineRisk = 20;
     } else if (daysUntilDue < 14) {
-        timelineRisk = 10; // Project due in 2 weeks
+        timelineRisk = 10;
     }
     
-    // Calculate completion risk
     const completionRisk = completionRate < 30 ? 20 : completionRate < 60 ? 10 : 0;
-    
-    // Combine all risk factors
     const finalRiskScore = Math.min(100, avgRiskScore + timelineRisk + completionRisk);
     
-    // Determine risk level
     let riskLevel;
     if (finalRiskScore >= 80 || daysUntilDue < 0) {
         riskLevel = 'CRITICAL';
@@ -1296,16 +1238,15 @@ function showTab(tabName, event) {
     document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
     
     document.getElementById(tabName).classList.add('active');
-    if (event) { // Add check for event, as it might be called programmatically
+    if (event) {
         event.target.classList.add('active');
     }
 
-    // Use window.orders and window.projects
     const orderList = window.orders || [];
     const projectList = window.projects || [];
 
     if (tabName === 'orders') {
-        renderOrders(orderList); // Use the global list
+        renderOrders(orderList);
     } else if (tabName === 'projects') {
         loadProjects();
     } else if (tabName === 'tracking') {
@@ -1323,28 +1264,24 @@ function showTab(tabName, event) {
 // Load Dashboard
 async function loadDashboard() {
     try {
-        // Use window.orders and window.projects
         const orderList = window.orders || [];
         const projectList = window.projects || [];
 
-        // Update risk assessment for all orders
         orderList.forEach(order => {
             const riskAssessment = calculateRiskAssessment(order);
             order.risk_level = riskAssessment.risk_level;
             order.risk_score = riskAssessment.risk_score;
         });
 
-        // Calculate KPIs
         const totalOrders = orderList.length;
         const activeProjects = projectList.filter(p => p.status === 'in_progress').length;
         const completedOrders = orderList.filter(o => o.current_status === 'completed').length;
         const criticalOrders = orderList.filter(o => o.risk_level === 'CRITICAL').length;
         
         const avgProgress = totalOrders > 0 ? orderList.reduce((sum, order) => sum + order.progress, 0) / totalOrders : 0;
-        const avgLeadTime = 48; // This would come from actual data
-        const defectRate = 2.5; // This would come from actual data
+        const avgLeadTime = 48;
+        const defectRate = 2.5;
 
-        // Update KPI cards
         document.getElementById('total-orders').textContent = totalOrders;
         document.getElementById('active-projects').textContent = activeProjects;
         document.getElementById('completed-orders').textContent = avgProgress.toFixed(1) + '%';
@@ -1352,7 +1289,6 @@ async function loadDashboard() {
         document.getElementById('avg-lead-time').textContent = avgLeadTime;
         document.getElementById('defect-rate').textContent = defectRate + '%';
 
-        // Update risk orders table
         let riskHtml = '';
         const atRiskOrders = orderList.filter(o => o.risk_level === 'CRITICAL' || o.risk_level === 'HIGH');
         
@@ -1373,10 +1309,8 @@ async function loadDashboard() {
                 </tr>
             `;
         });
-
         document.getElementById('risk-orders-table').innerHTML = riskHtml || '<tr><td colspan="6">No at-risk orders</td></tr>';
 
-        // Bottleneck detection
         const bottleneck = detectBottleneck();
         document.getElementById('bottleneck-stage').textContent = bottleneck.workstation;
         document.getElementById('bottleneck-risk').textContent = bottleneck.risk_level;
@@ -1402,7 +1336,6 @@ async function loadDashboard() {
 
 // Detect bottleneck in production
 function detectBottleneck() {
-    // Use window.orders
     const orderList = window.orders || [];
     const slowProcesses = {};
     
@@ -1425,7 +1358,6 @@ function detectBottleneck() {
         });
     });
     
-    // Find the process with longest average duration
     let bottleneck = { workstation: 'None', avg_duration: 0, risk_level: 'LOW' };
     for (const [process, data] of Object.entries(slowProcesses)) {
         const avgDuration = data.duration / data.count;
@@ -1449,7 +1381,6 @@ function detectBottleneck() {
 function renderOrders(ordersToRender) {
     try {
         let html = '';
-        // Use window.projects
         const projectList = window.projects || [];
         
         ordersToRender.forEach(order => {
@@ -1513,13 +1444,11 @@ function renderOrders(ordersToRender) {
 // Load Orders for Tracking
 async function loadOrdersForTracking() {
     try {
-        // Use window.orders
         const orderList = window.orders || [];
         let html = '<option value="">-- Select Order --</option>';
         orderList.filter(o => o.current_status !== 'completed').forEach(order => {
             html += `<option value="${order.order_id}">${order.order_id} - ${order.customer_name}</option>`;
         });
-
         document.getElementById('track-order-select').innerHTML = html;
 
     } catch (error) {
@@ -1530,13 +1459,11 @@ async function loadOrdersForTracking() {
 // Load Orders for DSS
 async function loadOrdersForDSS() {
     try {
-        // Use window.orders
         const orderList = window.orders || [];
         let html = '<option value="">-- Select Order --</option>';
         orderList.forEach(order => {
             html += `<option value="${order.order_id}">${order.order_id} - ${order.customer_name}</option>`;
         });
-
         document.getElementById('dss-order-select').innerHTML = html;
 
     } catch (error) {
@@ -1552,23 +1479,19 @@ function loadOrderTracking() {
         return;
     }
 
-    // Use window.orders
     const order = (window.orders || []).find(o => o.order_id === orderId);
     if (!order) return;
 
     document.getElementById('order-tracking-info').style.display = 'block';
 
-    // Set current datetime for start time if not set
     const now = new Date();
     const nowFormatted = now.toISOString().slice(0, 16);
     document.getElementById('start-time').value = nowFormatted;
 
-    // Generate process steps
     let processStepsHtml = '';
     let completedSteps = 0;
     let activeStepIndex = -1;
 
-    // Filter processes based on order requirements
     const applicableProcesses = productionProcesses.filter(process => {
         if (process.optional) {
             if (process.id === 'accessories') return order.requires_accessories;
@@ -1601,7 +1524,6 @@ function loadOrderTracking() {
 
     document.getElementById('process-steps').innerHTML = processStepsHtml;
 
-    // Update process connector
     const connectorWidth = activeStepIndex !== -1 ? 
         (activeStepIndex / (applicableProcesses.length - 1)) * 100 : 
         (completedSteps / applicableProcesses.length) * 100;
@@ -1614,7 +1536,6 @@ function loadOrderTracking() {
     }
     connector.style.width = `${connectorWidth}%`;
 
-    // Generate quantity tracking table
     let quantityTableHtml = `
         <table class="quantity-table">
             <thead>
@@ -1666,21 +1587,18 @@ function loadOrderTracking() {
     quantityTableHtml += '</tbody></table>';
     document.getElementById('quantity-tracking-table').innerHTML = quantityTableHtml;
 
-    // Generate process select options
     let processSelectHtml = '';
     applicableProcesses.forEach(process => {
         processSelectHtml += `<option value="${process.id}">${process.name}</option>`;
     });
     document.getElementById('track-process-select').innerHTML = processSelectHtml;
 
-    // Set max values for quantity inputs
     document.getElementById('quantity-completed').max = order.quantity;
     document.getElementById('defect-quantity').max = order.quantity;
 }
 
 // Update Order Status based on quantity completed in each process
 function updateOrderStatus(order) {
-    // Calculate overall progress based on completed processes
     const applicableProcesses = productionProcesses.filter(process => {
         if (process.optional) {
             if (process.id === 'accessories') return order.requires_accessories;
@@ -1689,16 +1607,13 @@ function updateOrderStatus(order) {
         return true;
     });
 
-    // Count completed processes (where quantity_completed equals order quantity)
     const completedProcesses = applicableProcesses.filter(process => {
         const tracking = order.tracking.find(t => t.process === process.id);
         return tracking && tracking.quantity_completed === order.quantity;
     }).length;
 
-    // Update progress percentage
     order.progress = Math.round((completedProcesses / applicableProcesses.length) * 100);
 
-    // Determine order status based on quantity completed in warehouse_out
     const warehouseOut = order.tracking.find(t => t.process === 'warehouse_out');
     
     if (warehouseOut && warehouseOut.quantity_completed === order.quantity) {
@@ -1709,7 +1624,6 @@ function updateOrderStatus(order) {
         order.current_status = 'pending';
     }
     
-    // Update risk assessment
     const riskAssessment = calculateRiskAssessment(order);
     order.risk_level = riskAssessment.risk_level;
     order.risk_score = riskAssessment.risk_score;
@@ -1721,16 +1635,12 @@ async function analyzeOrder() {
     if (!orderId) return;
 
     try {
-        // Use window.orders
         const order = (window.orders || []).find(o => o.order_id === orderId);
         if (!order) return;
-
-        // Update risk assessment
         const riskAssessment = calculateRiskAssessment(order);
         order.risk_level = riskAssessment.risk_level;
         order.risk_score = riskAssessment.risk_score;
 
-        // Calculate process efficiency using the new function
         const processEfficiency = updateEfficiencyCalculation(order);
 
         let html = `
@@ -1798,10 +1708,8 @@ async function analyzeOrder() {
                 </div>
             </div>
         `;
-
         document.getElementById('dss-results').innerHTML = html;
 
-        // Render charts
         renderProgressChart(order);
         renderProcessEfficiencyChart(processEfficiency);
         renderRiskTimelineChart(order);
@@ -1820,23 +1728,17 @@ async function analyzeProject() {
     if (!projectId) return;
 
     try {
-        // Use window.projects and window.orders
         const project = (window.projects || []).find(p => p.project_id === projectId);
         if (!project) return;
 
         const projectOrders = (window.orders || []).filter(o => o.project_id === projectId);
-        
-        // Update risk assessment for project
         const riskAssessment = calculateProjectRiskAssessment(project);
-
-        // Calculate project metrics
         const totalQuantity = projectOrders.reduce((sum, order) => sum + order.quantity, 0);
         const completedQuantity = projectOrders.reduce((sum, order) => {
             const warehouseOut = order.tracking.find(t => t.process === 'warehouse_out');
             return sum + (warehouseOut ? warehouseOut.quantity_completed : 0);
         }, 0);
 
-        // Calculate rubrikasi volume
         let totalVolume = 0;
         let inProcessVolume = 0;
 
@@ -1846,7 +1748,7 @@ async function analyzeProject() {
             const H = order.package_height || 0;
             const qty = order.quantity || 0;
 
-            const volume = (L * W * H) / 1000000; // convert cm³ → m³
+            const volume = (L * W * H) / 1000000;
             const orderTotal = volume * qty;
 
             totalVolume += orderTotal;
@@ -1857,16 +1759,12 @@ async function analyzeProject() {
         });
                 
         const completionRate = totalQuantity > 0 ? Math.round((completedQuantity / totalQuantity) * 100) : 0;
-        
-        // Calculate project timeline progress
         const startDate = new Date(project.start_date);
         const endDate = new Date(project.end_date);
         const today = new Date();
         const totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
         const daysPassed = Math.ceil((today - startDate) / (1000 * 60 * 60 * 24));
         const timelineProgress = Math.min(100, Math.max(0, Math.round((daysPassed / totalDays) * 100)));
-
-        // Calculate process efficiency across all orders in the project
         const processEfficiency = {};
         productionProcesses.forEach(process => {
             let totalEfficiency = 0;
@@ -1877,15 +1775,9 @@ async function analyzeProject() {
                 if (tracking && tracking.start_time && tracking.end_time) {
                     const start = new Date(tracking.start_time);
                     const end = new Date(tracking.end_time);
-                    const actualTime = (end - start) / (1000 * 60 * 60); // hours
-                    
-                    // Calculate quality (based on defect rate)
+                    const actualTime = (end - start) / (1000 * 60 * 60); 
                     const quality = Math.max(0, 100 - ((tracking.defect_quantity / order.quantity) * 100));
-                    
-                    // Calculate output (based on completion rate)
                     const output = (tracking.quantity_completed / order.quantity) * 100;
-                    
-                    // Calculate efficiency using the new function
                     totalEfficiency += calculateProcessEfficiency(
                         process.id, 
                         actualTime, 
@@ -1894,7 +1786,6 @@ async function analyzeProject() {
                     );
                     count++;
                 } else if (tracking && tracking.quantity_completed > 0) {
-                    // If in progress but no end time, estimate efficiency
                     totalEfficiency += 50;
                     count++;
                 }
@@ -1903,7 +1794,6 @@ async function analyzeProject() {
             processEfficiency[process.id] = count > 0 ? totalEfficiency / count : 0;
         });
 
-        // Compute total quantity & volume per workstation
         const workstationTotals = {};
 
         productionProcesses.forEach(proc => {
@@ -1999,7 +1889,6 @@ async function analyzeProject() {
         projectOrders.forEach(order => { html += generateOrderSectionHTML(order); });
         document.getElementById('dss-project-results').innerHTML = html;
 
-        // Render charts
         renderProjectTimelineChart(project, timelineProgress, completionRate);
         renderProjectProcessEfficiencyChart(workstationTotals);
         renderProjectRiskChart(riskAssessment.order_risks);
@@ -2043,7 +1932,6 @@ function generateRecommendations(order, riskAssessment) {
         });
     }
     
-    // Check for bottlenecks in specific processes
     const assembly = order.tracking.find(t => t.process === 'assembly');
     if (assembly && assembly.quantity_completed < order.quantity * 0.5 && order.progress > 30) {
         recommendations.push({
@@ -2097,7 +1985,6 @@ function generateProjectRecommendations(project, riskAssessment, projectOrders) 
         });
     }
     
-    // Check for high-risk orders
     const highRiskOrders = projectOrders.filter(o => {
         const risk = calculateRiskAssessment(o);
         return risk.risk_level === 'CRITICAL' || risk.risk_level === 'HIGH';
@@ -2110,7 +1997,6 @@ function generateProjectRecommendations(project, riskAssessment, projectOrders) 
         });
     }
     
-    // Check for process bottlenecks across the project
     const processDelays = {};
     productionProcesses.forEach(process => {
         let totalDelay = 0;
@@ -2137,7 +2023,6 @@ function generateProjectRecommendations(project, riskAssessment, projectOrders) 
         }
     });
     
-    // Find the process with highest delay
     let maxDelay = 0;
     let bottleneckProcess = '';
     
@@ -2171,11 +2056,7 @@ function generateOrderSectionHTML(order) {
     const orderVolume = ((order.package_length || 0) * (order.package_width || 0) * (order.package_height || 0)) / 1000000;
     const volumePerUnit = orderVolume.toFixed(3);
     const totalOrderVolume = (orderVolume * (order.quantity || 0)).toFixed(3);
-
-    // calculate per-workstation efficiencies using existing function
-    const processEff = updateEfficiencyCalculation(order); // returns { processId: efficiencyPercent, ... }
-
-    // Build efficiency list HTML
+    const processEff = updateEfficiencyCalculation(order);
     const effListHtml = Object.keys(processEff).map(pid => {
         const proc = productionProcesses.find(p => p.id === pid);
         const name = proc ? proc.name : pid;
@@ -2184,7 +2065,6 @@ function generateOrderSectionHTML(order) {
         return `<div class="pe-item"><div class="pe-name">${name}</div><div class="pe-value"><span class="badge ${badgeClass}">${effVal}%</span></div></div>`;
     }).join('');
 
-    // compute timeline progress for the order (safe)
     const start = order.order_date ? new Date(order.order_date) : null;
     const end = order.target_date ? new Date(order.target_date) : null;
     let orderTimeline = '-';
@@ -2226,11 +2106,8 @@ function generateOrderSectionHTML(order) {
 // Analyze All Orders (Combined Analysis)
 function analyzeAllOrders() {
     try {
-        // Use window.orders and window.projects
         const orderList = window.orders || [];
         const projectList = window.projects || [];
-
-        // Calculate overall metrics
         const totalOrders = orderList.length;
         const totalProjects = projectList.length;
         const completedOrders = orderList.filter(o => o.current_status === 'completed').length;
@@ -2242,7 +2119,6 @@ function analyzeAllOrders() {
         const avgProgress = totalOrders > 0 ? orderList.reduce((sum, order) => sum + order.progress, 0) / totalOrders : 0;
         const avgRiskScore = totalOrders > 0 ? orderList.reduce((sum, order) => sum + order.risk_score, 0) / totalOrders : 0;
         
-        // Calculate process efficiency across all orders
         const processEfficiency = {};
         productionProcesses.forEach(process => {
             let totalEfficiency = 0;
@@ -2253,15 +2129,9 @@ function analyzeAllOrders() {
                 if (tracking && tracking.start_time && tracking.end_time) {
                     const start = new Date(tracking.start_time);
                     const end = new Date(tracking.end_time);
-                    const actualTime = (end - start) / (1000 * 60 * 60); // hours
-                    
-                    // Calculate quality (based on defect rate)
+                    const actualTime = (end - start) / (1000 * 60 * 60);
                     const quality = Math.max(0, 100 - ((tracking.defect_quantity / order.quantity) * 100));
-                    
-                    // Calculate output (based on completion rate)
                     const output = (tracking.quantity_completed / order.quantity) * 100;
-                    
-                    // Calculate efficiency using the new function
                     totalEfficiency += calculateProcessEfficiency(
                         process.id, 
                         actualTime, 
@@ -2270,7 +2140,6 @@ function analyzeAllOrders() {
                     );
                     count++;
                 } else if (tracking && tracking.quantity_completed > 0) {
-                    // If in progress but no end time, estimate efficiency
                     totalEfficiency += 50;
                     count++;
                 }
@@ -2279,10 +2148,7 @@ function analyzeAllOrders() {
             processEfficiency[process.id] = count > 0 ? totalEfficiency / count : 0;
         });
 
-        // Identify bottlenecks across all orders
         const bottleneckAnalysis = analyzeBottlenecks();
-        
-        // Calculate project risk distribution
         const projectRiskDistribution = {
             critical: 0,
             high: 0,
@@ -2358,8 +2224,6 @@ function analyzeAllOrders() {
         `;
 
         document.getElementById('combined-results').innerHTML = html;
-
-        // Render combined charts
         renderCombinedEfficiencyChart(processEfficiency);
         renderBottleneckChart(bottleneckAnalysis);
         renderProjectRiskDistributionChart(projectRiskDistribution);
@@ -2374,7 +2238,6 @@ function analyzeAllOrders() {
 // Analyze bottlenecks across all orders
 function analyzeBottlenecks() {
     const processDelays = {};
-    // Use window.orders
     const orderList = window.orders || [];
     
     productionProcesses.forEach(process => {
@@ -2386,9 +2249,7 @@ function analyzeBottlenecks() {
             if (tracking && tracking.start_time && tracking.end_time) {
                 const start = new Date(tracking.start_time);
                 const end = new Date(tracking.end_time);
-                const duration = (end - start) / (1000 * 60 * 60); // hours
-                
-                // Compare with expected duration from efficiency settings
+                const duration = (end - start) / (1000 * 60 * 60);
                 const settings = loadEfficiencySettings();
                 const expectedDuration = settings[process.id]?.targetTime || 2;
                 const delay = Math.max(0, duration - expectedDuration);
@@ -2414,7 +2275,6 @@ function generateCombinedRecommendations(avgRiskScore, bottleneckAnalysis, proje
         });
     }
     
-    // Find the process with highest delay
     let maxDelay = 0;
     let bottleneckProcess = '';
     
@@ -2439,7 +2299,6 @@ function generateCombinedRecommendations(avgRiskScore, bottleneckAnalysis, proje
         });
     }
     
-    // Check for high-risk projects
     if (projectRiskDistribution.critical > 0 || projectRiskDistribution.high > 0) {
         recommendations.push({
             priority: 'HIGH',
@@ -2447,7 +2306,6 @@ function generateCombinedRecommendations(avgRiskScore, bottleneckAnalysis, proje
         });
     }
     
-    // Check for resource allocation issues
     const assemblyEfficiency = bottleneckAnalysis['assembly'] || 0;
     if (assemblyEfficiency > 3) {
         recommendations.push({
@@ -2522,7 +2380,6 @@ function renderProcessEfficiencyChart(efficiencyData) {
         processEfficiencyChart.destroy();
     }
     
-    // Use the actual process names from productionProcesses
     const processNames = productionProcesses.map(p => p.name);
     const efficiencyValues = productionProcesses.map(p => efficiencyData[p.id] || 0);
     
@@ -2606,7 +2463,6 @@ function renderResourceAllocationChart(order) {
         resourceAllocationChart.destroy();
     }
     
-    // Calculate resource allocation based on time spent in each process
     const allocationData = {};
     let totalTime = 0;
     
@@ -2614,13 +2470,12 @@ function renderResourceAllocationChart(order) {
         if (process.start_time && process.end_time) {
             const start = new Date(process.start_time);
             const end = new Date(process.end_time);
-            const duration = (end - start) / (1000 * 60 * 60); // hours
+            const duration = (end - start) / (1000 * 60 * 60);
             allocationData[process.process] = duration;
             totalTime += duration;
         }
     });
     
-    // Convert to percentages
     const allocationPercentages = {};
     for (const [process, time] of Object.entries(allocationData)) {
         allocationPercentages[process] = (time / totalTime) * 100;
@@ -2688,7 +2543,6 @@ function renderProcessFlowChart(order) {
         processFlowChart.destroy();
     }
     
-    // Filter processes based on order requirements
     const applicableProcesses = productionProcesses.filter(process => {
         if (process.optional) {
             if (process.id === 'accessories') return order.requires_accessories;
@@ -2826,7 +2680,6 @@ function renderProjectTimelineChart(project, timelineProgress, completionRate) {
         projectTimelineChart.destroy();
     }
     
-    // Generate weekly data points
     const startDate = new Date(project.start_date);
     const endDate = new Date(project.end_date);
     const totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
@@ -2841,10 +2694,8 @@ function renderProjectTimelineChart(project, timelineProgress, completionRate) {
         weekDate.setDate(startDate.getDate() + (i * 7));
         labels.push(`Week ${i + 1}`);
         
-        // Timeline progress (linear)
         timelineData.push(Math.min(100, (i / weeks) * 100));
         
-        // Completion progress (estimated based on current rate)
         if (i <= Math.floor((timelineProgress / 100) * weeks)) {
             completionData.push(Math.min(100, (completionRate / timelineProgress) * (i / weeks) * 100));
         } else {
@@ -2891,13 +2742,10 @@ function renderProjectTimelineChart(project, timelineProgress, completionRate) {
 }
 
 function renderProjectProcessEfficiencyChart(workstationTotals) {
-    // ensure canvas exists
     const canvas = document.getElementById('projectProcessEfficiencyChart');
     if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
-
-    // Use a global stored on window to avoid redeclaration errors
     if (window.projectProcessEfficiencyChart) {
         try { window.projectProcessEfficiencyChart.destroy(); } catch (e) { /* ignore destroy errors */ }
     }
@@ -2965,7 +2813,6 @@ function renderProjectRiskChart(orderRisks) {
         projectRiskChart.destroy();
     }
     
-    // Count orders by risk level
     const riskCounts = {
         'CRITICAL': 0,
         'HIGH': 0,
@@ -3015,8 +2862,6 @@ function renderProjectRiskChart(orderRisks) {
 
 function renderProjectResourceChart(projectOrders) {
     const ctx = document.getElementById('projectResourceChart').getContext('2d');
-    
-    // Calculate resource allocation based on order quantities
     const orderData = projectOrders.map(order => {
         return {
             order_id: order.order_id,
@@ -3110,11 +2955,8 @@ function renderOrderProjectTimelineChart() {
         orderProjectTimelineChart.destroy();
     }
     
-    // Use window.orders and window.projects
     const orderList = window.orders || [];
     const projectList = window.projects || [];
-    
-    // Group orders by project
     const projectData = {};
     
     projectList.forEach(project => {
@@ -3128,7 +2970,6 @@ function renderOrderProjectTimelineChart() {
         }
     });
     
-    // Add orders without projects
     const noProjectOrders = orderList.filter(o => !o.project_id);
     if (noProjectOrders.length > 0) {
         projectData['No Project'] = {
@@ -3186,7 +3027,6 @@ function generateProgressTimeline(order) {
     ];
 
     return timelineDates.map(d => {
-        // Calculate progress by checking how many processes finished before this date
         const completed = order.tracking.filter(t => t.end_time && new Date(t.end_time) <= d);
         const percent = (completed.length / order.tracking.length) * 100;
         return Math.round(percent);
@@ -3195,14 +3035,12 @@ function generateProgressTimeline(order) {
 
 // View Order Risk Details
 function viewOrderRisk(orderId) {
-    // Use window.orders
     const order = (window.orders || []).find(o => o.order_id === orderId);
     if (!order) return;
     
     const riskAssessment = calculateRiskAssessment(order);
     
     document.getElementById('dss-order-select').value = orderId;
-    // Programmatically switch tab
     showTab('dss', document.querySelector('.nav-link[onclick*="showTab(\'dss\'"]'));
     analyzeOrder();
 }
@@ -3210,7 +3048,6 @@ function viewOrderRisk(orderId) {
 // Analyze Order Direct
 function analyzeOrderDirect(orderId) {
     document.getElementById('dss-order-select').value = orderId;
-    // Programmatically switch tab
     showTab('dss', document.querySelector('.nav-link[onclick*="showTab(\'dss\'"]'));
     showDssTab('single');
     analyzeOrder();
@@ -3224,13 +3061,9 @@ function openOrderModal(orderId = null) {
     const form = document.getElementById('order-form');
     
     if (orderId) {
-        // Edit mode
         title.textContent = 'Edit Order';
         submitButton.textContent = 'Update Order';
         submitButton.innerHTML = '<i class="fas fa-save"></i> Update Order';
-        
-        // Load order data
-        // Use window.orders
         const order = (window.orders || []).find(o => o.order_id === orderId);
         if (order) {
             document.getElementById('order-id').value = order.order_id;
@@ -3250,14 +3083,12 @@ function openOrderModal(orderId = null) {
             document.getElementById('requires-welding').checked = order.requires_welding || false;
         }
     } else {
-        // Create mode
         title.textContent = 'Create New Order';
         submitButton.textContent = 'Create Order';
         submitButton.innerHTML = '<i class="fas fa-plus"></i> Create Order';
         form.reset();
+
         document.getElementById('order-id').value = '';
-        
-        // Set default dates
         const today = new Date().toISOString().split('T')[0];
         const targetDate = new Date();
         targetDate.setDate(targetDate.getDate() + 14);
@@ -3266,8 +3097,6 @@ function openOrderModal(orderId = null) {
         document.querySelector('input[name="order_date"]').value = today;
         document.querySelector('input[name="target_date"]').value = targetDateStr;
     }
-    
-    // Update project select options
     updateProjectSelects();
     
     modal.classList.add('active');
@@ -3288,13 +3117,11 @@ document.getElementById('order-form').addEventListener('submit', async (e) => {
     data.package_width  = parseFloat(data.package_width)  || 0;
     data.package_height = parseFloat(data.package_height) || 0;
 
-    // Add the extra boolean data and types
     data.requires_accessories = document.getElementById('requires-accessories').checked;
     data.requires_welding = document.getElementById('requires-welding').checked;
     data.quantity = parseInt(data.quantity);
-    data.order_id = orderId || null; // Pass null if new, API will handle it
+    data.order_id = orderId || null;
 
-    // Populate tracking for new orders
     if (!orderId) {
         data.tracking = productionProcesses.map(process => ({
             process: process.id,
@@ -3305,27 +3132,22 @@ document.getElementById('order-form').addEventListener('submit', async (e) => {
         }));
     }
 
-    // Disable submit button
     const submitButton = document.getElementById('submit-button');
     submitButton.disabled = true;
     submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
 
     try {
-        // Call the saveOrder function from vercel.js
         if (typeof saveOrder !== 'function') {
             throw new Error('saveOrder function is not defined. Check vercel.js');
         }
 
-        // We need to pass the *full* order object, not just form data
         let payload = data;
         if(orderId) {
-            // We are editing, merge with existing data
-            // Use window.orders
             const existingOrder = (window.orders || []).find(o => o.order_id === orderId);
             payload = { ...existingOrder, ...data };
         }
 
-        await saveOrder(payload); // This function (from vercel.js) needs to handle reloading
+        await saveOrder(payload);
 
         closeOrderModal();
 
@@ -3333,7 +3155,6 @@ document.getElementById('order-form').addEventListener('submit', async (e) => {
         console.error('Error in form submission:', error);
         showAlert(`Error saving order: ${error.message}`, 'error');
     } finally {
-        // Re-enable submit button
         submitButton.disabled = false;
         const buttonText = orderId ? '<i class="fas fa-save"></i> Update Order' : '<i class="fas fa-plus"></i> Create Order';
         submitButton.innerHTML = buttonText;
@@ -3348,19 +3169,10 @@ async function editOrder(orderId) {
 async function deleteOrder(orderId) {
     if (confirm(`Are you sure you want to delete order ${orderId}? This is permanent.`)) {
         try {
-            // Call the deleteOrderAPI function (which we need to add to vercel.js)
             if (typeof deleteOrderAPI !== 'function') {
-                // Quick fix: add deleteOrderAPI to vercel.js if it's missing
-                // For now, let's just show an error.
-                // THIS IS THE FIX FROM THE PREVIOUS MESSAGE. 
-                // Make sure vercel.js has the deleteOrderAPI function
                 throw new Error('deleteOrderAPI function is not defined. Check vercel.js');
             }
-
-            await deleteOrderAPI(orderId); // This function will handle reloading
-
-            // The reload logic is in deleteOrderAPI, no need to do it here.
-
+            await deleteOrderAPI(orderId);
         } catch (error) {
             console.error('Error deleting order:', error);
             showAlert(`Error deleting order: ${error.message}`, 'error');
@@ -3378,7 +3190,6 @@ document.getElementById('tracking-form').addEventListener('submit', async (e) =>
     const data = Object.fromEntries(formData);
 
     try {
-        // Use window.orders
         const order = (window.orders || []).find(o => o.order_id === orderId);
         if (order) {
             const trackingIndex = order.tracking.findIndex(t => t.process === processId);
@@ -3386,7 +3197,6 @@ document.getElementById('tracking-form').addEventListener('submit', async (e) =>
                 const quantityCompleted = parseInt(data.quantity_completed) || 0;
                 const now = new Date().toISOString();
                 
-                // Update tracking data
                 order.tracking[trackingIndex] = {
                     ...order.tracking[trackingIndex],
                     quantity_completed: quantityCompleted,
@@ -3398,12 +3208,10 @@ document.getElementById('tracking-form').addEventListener('submit', async (e) =>
                     last_updated: now
                 };
 
-                // Update process status based on quantity completed
                 if (quantityCompleted === 0) {
                     order.tracking[trackingIndex].status = 'pending';
                 } else if (quantityCompleted === order.quantity) {
                     order.tracking[trackingIndex].status = 'completed';
-                    // Set end time if not already set
                     if (!order.tracking[trackingIndex].end_time) {
                         order.tracking[trackingIndex].end_time = now;
                     }
@@ -3411,21 +3219,16 @@ document.getElementById('tracking-form').addEventListener('submit', async (e) =>
                     order.tracking[trackingIndex].status = 'in_progress';
                 }
 
-                // Update order status and progress
                 updateOrderStatus(order);
-                
-                // ** CRITICAL: Save the updated order back to the database **
-                // We need to save the *entire order* object
                 if (typeof saveOrder !== 'function') {
                     throw new Error('saveOrder function is not defined. Check vercel.js');
                 }
-                await saveOrder(order); // This will save and reload the app
+                await saveOrder(order);
 
                 showAlert('Tracking updated successfully', 'success');
                 e.target.reset();
-                loadOrderTracking(); // This will run again after saveOrder reloads, which is fine
+                loadOrderTracking();
                 
-                // Refresh DSS analysis if we're on that tab
                 if (document.getElementById('dss').classList.contains('active')) {
                     if (document.getElementById('dss-single').classList.contains('active')) {
                         analyzeOrder();
